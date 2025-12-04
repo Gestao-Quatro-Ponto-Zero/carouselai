@@ -90,18 +90,16 @@ CarouselAI helps content creators, marketers, and social media managers build pr
 
 3. **Set up your API key** (choose one method)
 
-   **Option A: Environment file**
-   ```bash
-   cp .env.example .env.local
-   ```
-   Edit `.env.local` and add your Gemini API key:
+   **Option A: In-app configuration (recommended)**
+
+   Simply launch the app and enter your API key in the UI - it will be saved to your browser's local storage.
+
+   **Option B: Environment file**
+
+   Create a `.env.local` file in the project root:
    ```
    API_KEY=your_gemini_api_key_here
    ```
-
-   **Option B: In-app configuration**
-
-   You can also enter your API key directly in the app UI after launching.
 
 4. **Start the development server**
    ```bash
