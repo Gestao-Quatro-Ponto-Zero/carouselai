@@ -1,3 +1,17 @@
+/**
+ * StorytellerSlide Component
+ *
+ * Renders slides in a cinematic, image-first aesthetic. Designed for
+ * visually engaging stories with bold typography over background images.
+ *
+ * TWO LAYOUT MODES:
+ * 1. OVERLAY (default): Image as background with gradient fade, text floats over
+ * 2. SPLIT: Hard line between image (top) and text (bottom)
+ *
+ * The mode is controlled by the slide.overlayImage property:
+ * - undefined or true → Overlay mode (cinematic fade)
+ * - false → Split mode (clean division)
+ */
 
 import React from 'react';
 import { Slide, Profile, Theme } from '../types';
@@ -8,23 +22,40 @@ interface StorytellerSlideProps {
   index: number;
   total: number;
   showSlideNumbers: boolean;
-  headerScale?: number;
+  headerScale?: number;      // Size multiplier for footer elements (0.5 - 2.0)
   theme: Theme;
-  forExport?: boolean;
+  forExport?: boolean;       // True when rendering for PNG capture
   showVerifiedBadge?: boolean;
-  accentColor?: string;
+  accentColor?: string;      // Highlight color for __underlined__ text and bullets
 }
 
-// Inline Markdown Parser for Storyteller (Bold/High Contrast)
+// ============================================================================
+// MARKDOWN PARSER
+// ============================================================================
+
+/**
+ * Parses inline markdown syntax and returns React elements.
+ *
+ * SUPPORTED SYNTAX:
+ * - **bold** → Strong, high contrast
+ * - *italic* → Emphasized, muted
+ * - ~~strikethrough~~ → Crossed out, dimmed
+ * - __highlighted__ → Background highlight using accent color
+ *
+ * ACCENT COLOR HIGHLIGHTING:
+ * When accentColor is provided (e.g., "#EAB308"), highlighted text gets
+ * a semi-transparent background: `#EAB3084D` (4D = ~30% opacity in hex)
+ */
 const parseInline = (text: string, theme: Theme, accentColor?: string) => {
   const boldColor = theme === 'DARK' ? 'text-white' : 'text-black';
   const italicColor = theme === 'DARK' ? 'text-gray-300' : 'text-gray-600';
-  
-  // Highlighting style: Uses accent color with 30% opacity if present, otherwise gray
-  const highlightStyle = accentColor 
-    ? { backgroundColor: `${accentColor}4D` } // Hex alpha approx 30%
+
+  // Hex alpha: 4D ≈ 30% opacity (77/255)
+  const highlightStyle = accentColor
+    ? { backgroundColor: `${accentColor}4D` }
     : { backgroundColor: theme === 'DARK' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' };
 
+  // Regex splits text while keeping markdown tokens as separate parts
   const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|~~.*?~~|__.*?__)/g);
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className={`font-black ${boldColor}`}>{part.slice(2, -2)}</strong>;
@@ -82,19 +113,30 @@ const renderMarkdown = (text: string, theme: Theme, accentColor?: string) => {
 };
 
 const StorytellerSlide: React.FC<StorytellerSlideProps> = ({ slide, profile, index, total, showSlideNumbers, headerScale = 1.0, theme, forExport = false, showVerifiedBadge = true, accentColor }) => {
-  
-  // Image Overlay Logic
+
+  // ============================================================================
+  // LAYOUT MODE DETERMINATION
+  // ============================================================================
+
+  // OVERLAY MODE: Image behind text with gradient fade (cinematic look)
+  // SPLIT MODE: Image on top, text below with hard dividing line
   const isOverlay = slide.showImage && (slide.overlayImage !== false);
   const showSplit = slide.showImage && !isOverlay;
 
-  const imageScale = slide.imageScale || 45; 
-  const imageOffsetY = slide.imageOffsetY !== undefined ? slide.imageOffsetY : 50;
-  const gradientHeight = slide.gradientHeight !== undefined ? slide.gradientHeight : 60;
+  // Image sizing and positioning
+  const imageScale = slide.imageScale || 45;  // Default 45% (smaller than Twitter's 50%)
+  const imageOffsetY = slide.imageOffsetY !== undefined ? slide.imageOffsetY : 50; // Vertical crop position
+  const gradientHeight = slide.gradientHeight !== undefined ? slide.gradientHeight : 60; // Fade overlay size
 
-  const splitTextHeight = 100 - imageScale;
-  const splitImageHeight = imageScale;
-  const overlayImageHeight = imageScale; 
-  const overlayTextPaddingTop = Math.max(0, overlayImageHeight - 12); 
+  // Calculate layout percentages based on mode
+  const splitTextHeight = 100 - imageScale;   // Split mode: remaining space for text
+  const splitImageHeight = imageScale;         // Split mode: image takes imageScale%
+  const overlayImageHeight = imageScale;       // Overlay mode: image covers imageScale% from top
+
+  // TEXT PADDING CALCULATION (overlay mode only):
+  // We want text to start where the gradient begins, creating a seamless transition.
+  // The -12 offset pushes text up slightly into the gradient zone for visual overlap.
+  const overlayTextPaddingTop = Math.max(0, overlayImageHeight - 12);
 
   const bgColor = theme === 'DARK' ? '#0a0a0a' : '#ffffff';
   
@@ -109,14 +151,25 @@ const StorytellerSlide: React.FC<StorytellerSlideProps> = ({ slide, profile, ind
       style={{ backgroundColor: bgColor }}
     >
       
-      {/* --- OVERLAY MODE (Cinematic Fade) --- */}
+      {/* ================================================================
+          OVERLAY MODE (Cinematic Fade)
+          Image positioned absolutely, covering top portion of slide.
+          A gradient fades from image into background color.
+          ================================================================ */}
       {isOverlay && slide.imageUrl && (
         <div
             className="absolute top-0 left-0 right-0 z-0"
             style={{ height: `${overlayImageHeight}%`, overflow: 'hidden' }}
         >
+          {/*
+            EXPORT vs PREVIEW RENDERING PATTERN:
+            - Preview: Use <img> tag with object-fit (better performance during editing)
+            - Export: Use background-image CSS (html-to-image captures it more reliably)
+
+            The crossOrigin="anonymous" attribute is required for html-to-image
+            to capture external images without CORS errors.
+          */}
           {forExport ? (
-            // For export: use background-image which html2canvas handles better
             <div
               className="w-full h-full"
               style={{
@@ -138,13 +191,18 @@ const StorytellerSlide: React.FC<StorytellerSlideProps> = ({ slide, profile, ind
               }}
             />
           )}
-          {/* Gradient Fade into Background Color */}
+
+          {/*
+            GRADIENT FADE OVERLAY:
+            Creates a smooth transition from image to solid background color.
+            - Uses rgba() instead of 'transparent' keyword for html-to-image compatibility
+            - pointerEvents: 'none' prevents gradient from blocking text interaction
+          */}
           <div
             className="absolute bottom-0 left-0 right-0"
             data-gradient-overlay="true"
             style={{
                 height: `${gradientHeight}%`,
-                // Use rgba instead of 'transparent' for better html2canvas compatibility
                 background: theme === 'DARK'
                   ? `linear-gradient(to bottom, rgba(10, 10, 10, 0), rgba(10, 10, 10, 1))`
                   : `linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 1))`,

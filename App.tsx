@@ -1,3 +1,19 @@
+/**
+ * App Component - Main Application & Onboarding Flow
+ *
+ * This is the root component that manages the onboarding wizard and routes to the Workspace.
+ *
+ * ONBOARDING FLOW (6 steps):
+ * 1. FORMAT_SELECT    → Choose carousel style (Twitter or Storyteller)
+ * 2. ASPECT_RATIO_SELECT → Choose post dimensions (1:1, 4:5)
+ * 3. PROFILE_INPUT    → Enter name, handle, upload avatar
+ * 4. METHOD_SELECT    → Choose "AI Magic" or "Manual Creation"
+ * 5. AI_TOPIC_INPUT   → (AI only) Enter topic, slide count, model
+ * 6. WORKSPACE        → Main editor with slides
+ *
+ * The step state machine controls which screen is displayed.
+ * API key can be configured at multiple points in the flow.
+ */
 
 import React, { useState, useEffect } from 'react';
 import { AppStep, CarouselStyle, Profile, Slide, SlideType, AspectRatio } from './types';
@@ -6,16 +22,26 @@ import { generateCarouselContent, TEXT_MODEL_PRO, TEXT_MODEL_PRO_2_5, TEXT_MODEL
 import Workspace from './components/Workspace';
 
 const App: React.FC = () => {
+  // ============================================================================
+  // STATE MACHINE: Controls which onboarding step is displayed
+  // ============================================================================
   const [step, setStep] = useState<AppStep>('FORMAT_SELECT');
+
+  // ============================================================================
+  // CAROUSEL SETTINGS (collected during onboarding)
+  // ============================================================================
   const [style, setStyle] = useState<CarouselStyle>(CarouselStyle.TWITTER);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1/1');
   const [profile, setProfile] = useState<Profile>({
     name: 'Joao Vitor',
     handle: 'joaovitor',
-    avatarUrl: 'https://picsum.photos/id/64/200/200' // Placeholder face
+    avatarUrl: 'https://picsum.photos/id/64/200/200'
   });
   const [slides, setSlides] = useState<Slide[]>(MOCK_SLIDES);
-  
+
+  // ============================================================================
+  // AI GENERATION SETTINGS
+  // ============================================================================
   const [aiTopic, setAiTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [slideCount, setSlideCount] = useState(7);
@@ -23,7 +49,10 @@ const App: React.FC = () => {
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // API Key State
+  // ============================================================================
+  // API KEY MANAGEMENT
+  // Key can be configured via UI; persists to localStorage
+  // ============================================================================
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
@@ -68,6 +97,17 @@ const App: React.FC = () => {
     setStep('METHOD_SELECT');
   };
 
+  /**
+   * Converts uploaded avatar image to base64 data URI.
+   *
+   * WHY DATA URI:
+   * - Works offline (no external URL dependency)
+   * - Compatible with html-to-image export
+   * - Persists with the profile state
+   *
+   * The FileReader.readAsDataURL() creates a string like:
+   * "data:image/png;base64,iVBORw0KGgo..."
+   */
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -91,11 +131,20 @@ const App: React.FC = () => {
     setStep('WORKSPACE');
   };
 
-  // --- Step 5: AI Generation ---
+  /**
+   * Generates carousel content using Gemini AI.
+   *
+   * The user selects a model (Pro, 2.5 Pro, or Flash) in the UI.
+   * The geminiService handles automatic fallback if the selected model fails.
+   *
+   * On success: Navigate to Workspace with generated slides
+   * On failure: Show alert (user should check API key)
+   */
   const handleAiGenerate = async () => {
     if (!aiTopic.trim()) return;
     setIsGenerating(true);
     try {
+      // Model fallback is handled internally by generateCarouselContent
       const generatedSlides = await generateCarouselContent(aiTopic, slideCount, selectedTextModel);
       setSlides(generatedSlides);
       setStep('WORKSPACE');

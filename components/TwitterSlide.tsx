@@ -1,3 +1,18 @@
+/**
+ * TwitterSlide Component
+ *
+ * Renders slides in a classic Twitter/X screenshot aesthetic.
+ * Clean, text-focused design with a profile header and optional image.
+ *
+ * DESIGN: Mimics the look of a tweet screenshot
+ * - Profile avatar + name + handle at top
+ * - Large, readable text content
+ * - Optional image below content
+ * - Pagination badge in footer
+ *
+ * SCALING: All font sizes are optimized for 1080px width export.
+ * The headerScale prop allows adjusting the profile section size.
+ */
 
 import React from 'react';
 import { Slide, Profile, Theme } from '../types';
@@ -8,21 +23,34 @@ interface TwitterSlideProps {
   index: number;
   total: number;
   showSlideNumbers: boolean;
-  headerScale?: number;
+  headerScale?: number;      // Size multiplier for profile section (0.5 - 2.0)
   theme: Theme;
-  forExport?: boolean;
+  forExport?: boolean;       // Not used in Twitter style (same rendering for both)
   showVerifiedBadge?: boolean;
-  accentColor?: string;
+  accentColor?: string;      // Used for pagination badge color
 }
 
-// Simple Markdown Parser Helpers
+// ============================================================================
+// MARKDOWN PARSER
+// ============================================================================
+
+/**
+ * Parses inline markdown syntax and returns React elements.
+ *
+ * SUPPORTED SYNTAX:
+ * - **bold** → Strong weight
+ * - *italic* → Italic style
+ * - ~~strikethrough~~ → Crossed out text
+ * - __underlined__ → Underlined text (different from Storyteller's highlight)
+ *
+ * The regex splits text while preserving markdown tokens as separate array elements,
+ * which are then mapped to their respective React components.
+ */
 const parseInline = (text: string, theme: Theme) => {
-  // Colors based on theme
   const boldColor = theme === 'DARK' ? 'text-white' : 'text-gray-900';
   const italicColor = theme === 'DARK' ? 'text-gray-300' : 'text-gray-800';
   const strikeColor = theme === 'DARK' ? 'text-gray-600' : 'text-gray-500';
 
-  // Bold: **text**, Italic: *text*, Strike: ~~text~~, Underline: __text__
   const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|~~.*?~~|__.*?__)/g);
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className={`font-bold ${boldColor}`}>{part.slice(2, -2)}</strong>;
@@ -33,10 +61,24 @@ const parseInline = (text: string, theme: Theme) => {
   });
 };
 
+/**
+ * Renders full markdown content (block-level elements).
+ *
+ * SUPPORTED SYNTAX:
+ * - # Header 1 → 7xl font (largest)
+ * - ## Header 2 → 6xl font
+ * - - bullet list → Bullet points
+ * - 1. numbered list → Numbered items
+ * - Empty line → Vertical spacing
+ * - Regular text → 5xl paragraph
+ *
+ * FONT SCALING:
+ * All sizes are pre-calculated for 1080px width output.
+ * text-7xl ≈ 72px, text-6xl ≈ 60px, text-5xl ≈ 48px, text-4xl ≈ 36px
+ */
 const renderMarkdown = (text: string, theme: Theme) => {
   const lines = text.split('\n');
 
-  // Theme Colors
   const hColor = theme === 'DARK' ? 'text-white' : 'text-gray-900';
   const textColor = theme === 'DARK' ? 'text-gray-200' : 'text-gray-800';
   const bulletColor = theme === 'DARK' ? 'text-gray-500' : 'text-gray-400';
@@ -44,8 +86,8 @@ const renderMarkdown = (text: string, theme: Theme) => {
 
   return lines.map((line, idx) => {
     const trimmed = line.trim();
-    
-    // Headers - Scaled for 1080px width
+
+    // Headers
     if (line.startsWith('# ')) {
       return <h1 key={idx} className={`text-7xl font-extrabold leading-tight mb-8 tracking-tight ${hColor}`}>{parseInline(line.slice(2), theme)}</h1>;
     }
@@ -53,7 +95,7 @@ const renderMarkdown = (text: string, theme: Theme) => {
       return <h2 key={idx} className={`text-6xl font-bold leading-tight mb-6 tracking-tight ${hColor}`}>{parseInline(line.slice(3), theme)}</h2>;
     }
 
-    // Lists - Scaled for 1080px width
+    // Bullet list
     if (trimmed.startsWith('- ')) {
        return (
          <div key={idx} className="flex items-start mb-4 ml-2">
@@ -62,6 +104,8 @@ const renderMarkdown = (text: string, theme: Theme) => {
          </div>
        );
     }
+
+    // Numbered list
     if (/^\d+\. /.test(trimmed)) {
         const number = trimmed.match(/^\d+/)?.[0];
         const content = trimmed.replace(/^\d+\. /, '');
@@ -73,23 +117,30 @@ const renderMarkdown = (text: string, theme: Theme) => {
           );
     }
 
-    // Empty lines (spacing)
+    // Empty lines create vertical spacing
     if (!trimmed) return <div key={idx} className="h-8"></div>;
 
-    // Standard Paragraph - Scaled for 1080px width (Approx 48px font size)
+    // Regular paragraph
     return <p key={idx} className={`text-5xl leading-relaxed mb-6 ${textColor}`}>{parseInline(line, theme)}</p>;
   });
 };
 
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
 const TwitterSlide: React.FC<TwitterSlideProps> = ({ slide, profile, index, total, showSlideNumbers, headerScale = 1.0, theme, forExport = false, showVerifiedBadge = true, accentColor }) => {
-  
-  // Calculate heights
-  const imageScale = slide.imageScale || 50; 
+
+  // LAYOUT CALCULATIONS
+  // When an image is shown, it takes imageScale% of height; text takes the rest
+  const imageScale = slide.imageScale || 50;  // Default 50% for Twitter style
   const textHeightPercent = slide.showImage ? 100 - imageScale : 100;
   const imageHeightPercent = slide.showImage ? imageScale : 0;
   const imageOffsetY = slide.imageOffsetY !== undefined ? slide.imageOffsetY : 50;
 
-  // Header styling
+  // DYNAMIC SCALING PATTERN:
+  // All header dimensions are base values multiplied by headerScale.
+  // This allows users to adjust the profile section size (50% to 200%).
   const avatarSize = 130 * headerScale;
   const nameSize = 48 * headerScale;
   const handleSize = 32 * headerScale;

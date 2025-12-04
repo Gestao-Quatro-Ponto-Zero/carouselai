@@ -1,3 +1,21 @@
+/**
+ * Workspace Component
+ *
+ * The main editor interface for CarouselAI. This is the largest component in the app,
+ * handling all slide editing, image generation, and export functionality.
+ *
+ * LAYOUT: Three-panel design
+ * - Left sidebar: Slide list with thumbnails, batch mode controls
+ * - Center canvas: Live slide preview with zoom controls
+ * - Right sidebar: Slide properties, image settings, global options
+ *
+ * KEY FEATURES:
+ * - Individual and batch image generation
+ * - Image upload with AI stylization
+ * - PNG export (single slide or ZIP of all)
+ * - Markdown text editing with toolbar
+ * - Theme, color, and layout customization
+ */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Slide, Profile, CarouselStyle, SlideType, AspectRatio, Theme } from '../types';
@@ -14,56 +32,78 @@ interface WorkspaceProps {
   onBack: () => void;
 }
 
-// Declare global types for external libraries
+// External libraries loaded via CDN in index.html
 declare global {
   interface Window {
-    htmlToImage: any;
-    JSZip: any;
-    saveAs: any;
+    htmlToImage: any;  // PNG export library
+    JSZip: any;        // ZIP creation for batch export
+    saveAs: any;       // File download helper
   }
 }
 
 const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRatio, onUpdateSlides, onBack }) => {
+  // ============================================================================
+  // CORE STATE
+  // ============================================================================
   const [activeSlideId, setActiveSlideId] = useState<string>(slides[0].id);
-  const [generatingSlideIds, setGeneratingSlideIds] = useState<Set<string>>(new Set());
+  const [generatingSlideIds, setGeneratingSlideIds] = useState<Set<string>>(new Set()); // Per-slide loading state
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Keep a ref to the latest slides to avoid stale closure issues in async handlers
+  // PATTERN: Stale Closure Workaround
+  // Problem: Async handlers (image generation, stylization) capture `slides` at call time.
+  // If user edits other slides while waiting, those changes would be lost when we update.
+  // Solution: Keep a ref that always points to the CURRENT slides array.
+  // Usage: In async handlers, use slidesRef.current instead of slides from closure.
   const slidesRef = useRef(slides);
   useEffect(() => {
     slidesRef.current = slides;
   }, [slides]);
   
-  // Global Settings
+  // ============================================================================
+  // GLOBAL SETTINGS (apply to all slides)
+  // ============================================================================
   const [showSlideNumbers, setShowSlideNumbers] = useState(true);
   const [showVerifiedBadge, setShowVerifiedBadge] = useState(true);
-  const [zoomLevel, setZoomLevel] = useState(0.4); 
-  const [headerScale, setHeaderScale] = useState(1.0);
-  const [accentColor, setAccentColor] = useState('#EAB308'); // Default Yellow-500
+  const [zoomLevel, setZoomLevel] = useState(0.4);           // Canvas preview scale (0.2 - 1.0)
+  const [headerScale, setHeaderScale] = useState(1.0);       // Profile header size multiplier (0.5 - 2.0)
+  const [accentColor, setAccentColor] = useState('#EAB308'); // Highlight color for markdown
   const [showAccent, setShowAccent] = useState(true);
 
+  // ============================================================================
+  // IMAGE GENERATION SETTINGS
+  // ============================================================================
   const [selectedImageModel, setSelectedImageModel] = useState<string>(IMAGE_MODEL_PRO);
-  const [imageAspectRatio, setImageAspectRatio] = useState<AspectRatio>('16/9'); // Default 16:9 for image generation
+  const [imageAspectRatio, setImageAspectRatio] = useState<AspectRatio>('16/9');
 
-  // Set default theme based on style: Storyteller -> Dark, Twitter -> Light
+  // Default theme: Storyteller uses dark (cinematic), Twitter uses light (clean)
   const [theme, setTheme] = useState<Theme>(
     style === CarouselStyle.STORYTELLER ? 'DARK' : 'LIGHT'
   );
 
-  // Image Upload Modal State
+  // ============================================================================
+  // IMAGE UPLOAD & STYLIZATION STATE
+  // ============================================================================
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [pendingUploadImage, setPendingUploadImage] = useState<{
-    base64: string;
-    rawBase64: string;
-    mimeType: string;
+    base64: string;       // Full data URI for preview
+    rawBase64: string;    // Raw base64 without prefix (for API)
+    mimeType: string;     // e.g., "image/png", "image/jpeg"
     width: number;
     height: number;
-    detectedRatio: string;  // Closest API-supported ratio (e.g., "1:1", "9:16")
+    detectedRatio: string;  // Closest API-supported ratio (preserves original proportions)
   } | null>(null);
   const [stylizePrompt, setStylizePrompt] = useState('');
   const [isStylizing, setIsStylizing] = useState(false);
 
-  // Helper to find closest API-supported aspect ratio
+  /**
+   * Finds the closest API-supported aspect ratio for an uploaded image.
+   * Used to preserve the original image proportions when stylizing.
+   *
+   * Algorithm: Linear distance minimization against known API ratios.
+   *
+   * @param ratio - The actual width/height ratio of the uploaded image
+   * @returns API ratio string (e.g., "1:1", "9:16")
+   */
   const getClosestApiRatio = (ratio: number): string => {
     const apiRatios = [
       { name: '1:1', value: 1 },
@@ -87,13 +127,22 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
     return closest.name;
   };
 
-  // Batch Generation State
+  // ============================================================================
+  // BATCH GENERATION STATE
+  // These 4 state variables work together to enable multi-slide image generation:
+  // - batchMode: UI toggle for checkbox selection mode
+  // - selectedSlideIds: Which slides are checked for batch generation
+  // - batchGenerating: Global "in progress" flag
+  // - slideGenerationStatus: Per-slide status for progress indicators
+  // ============================================================================
   const [batchMode, setBatchMode] = useState(false);
   const [selectedSlideIds, setSelectedSlideIds] = useState<Set<string>>(new Set());
   const [batchGenerating, setBatchGenerating] = useState(false);
   const [slideGenerationStatus, setSlideGenerationStatus] = useState<Record<string, 'idle' | 'generating' | 'success' | 'error'>>({});
 
-  // API Key Management
+  // ============================================================================
+  // API KEY MANAGEMENT (in-workspace override)
+  // ============================================================================
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [apiKeyDisplay, setApiKeyDisplay] = useState(getApiKeyMasked());
@@ -294,10 +343,21 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
     setStylizePrompt('');
   };
 
+  // ============================================================================
+  // IMAGE GENERATION HANDLERS
+  // ============================================================================
+
+  /**
+   * Generates an AI image for the currently active slide.
+   *
+   * ASYNC PATTERN: Captures slideId early, uses slidesRef for current state.
+   * This allows concurrent generation on multiple slides without data loss.
+   */
   const handleGenerateImage = async () => {
     if (!activeSlide) return;
 
     // Capture slide ID and prompt at call time (not the whole slide object)
+    // This ensures we update the correct slide even if user switches slides during generation
     const slideId = activeSlide.id;
     const prompt = activeSlide.imagePrompt || `An abstract representation of: ${activeSlide.content.substring(0, 50)}`;
 
@@ -341,21 +401,34 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
     }
   };
 
-  // --- Batch Generation Logic ---
-
+  /**
+   * Generates images for multiple slides simultaneously.
+   *
+   * PATTERN: Promise.allSettled for parallel operations
+   * - All selected slides generate images concurrently
+   * - Individual failures don't stop other generations
+   * - Per-slide status tracking shows progress in UI
+   *
+   * FLOW:
+   * 1. Set all selected slides to "generating" status
+   * 2. Fire off all generation requests in parallel
+   * 3. Wait for ALL to complete (success or failure)
+   * 4. Update slides with successful images
+   * 5. Show success/error status for 3 seconds, then reset
+   */
   const handleBatchGenerateImages = async () => {
     if (selectedSlideIds.size === 0) return;
 
     setBatchGenerating(true);
 
-    // Initialize all selected slides as "generating"
+    // Initialize all selected slides as "generating" for UI feedback
     const initialStatus: Record<string, 'idle' | 'generating' | 'success' | 'error'> = {};
     selectedSlideIds.forEach(id => {
       initialStatus[id] = 'generating';
     });
     setSlideGenerationStatus(initialStatus);
 
-    // Create array of generation promises
+    // Create array of generation promises (all run concurrently)
     const generationPromises = Array.from(selectedSlideIds).map(async (slideId) => {
       const slideIndex = slides.findIndex(s => s.id === slideId);
       if (slideIndex === -1) return { slideId, success: false };
@@ -433,23 +506,46 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
     }
   };
 
-  // --- Download Logic ---
+  // ============================================================================
+  // PNG EXPORT (Download Logic)
+  // ============================================================================
 
+  /**
+   * Captures a slide element as a PNG image.
+   *
+   * EXPORT MECHANISM: Uses html-to-image library which:
+   * 1. Creates an SVG with a foreignObject containing the HTML
+   * 2. Renders the SVG to a canvas
+   * 3. Exports the canvas as PNG
+   *
+   * CHALLENGE: Export elements are normally positioned off-screen (left: -9999px)
+   * for performance. But browsers may not fully render off-screen content.
+   *
+   * SOLUTION: Temporarily move the element on-screen during capture:
+   * 1. Store original styles
+   * 2. Move element to fixed position at (0,0)
+   * 3. Force browser reflow
+   * 4. Wait 100ms for rendering
+   * 5. Capture with html-to-image
+   * 6. Restore original styles (even on error)
+   *
+   * @param elementId - DOM id of the export container (e.g., "export-slide-abc123")
+   * @returns PNG blob or null on failure
+   */
   const captureSlide = async (elementId: string): Promise<Blob | null> => {
       const element = document.getElementById(elementId);
       if (!element) return null;
 
-      // Determine bg color based on mode and style
       const bgColor = theme === 'DARK' ? '#0a0a0a' : '#FFFFFF';
 
-      // Store original styles
+      // Store original styles for restoration after capture
       const originalElementStyle = element.getAttribute('style') || '';
       const slideChild = element.firstElementChild as HTMLElement;
       const originalSlideChildStyle = slideChild?.getAttribute('style') || '';
 
       try {
-          // Move THIS specific element to fixed position on-screen
-          // This ensures the browser fully paints it regardless of its position in the hidden container
+          // STEP 1: Move element to visible position
+          // The export containers are hidden off-screen; we bring this one on-screen temporarily
           element.style.cssText = `
               position: fixed;
               top: 0;
@@ -461,40 +557,40 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
               background-color: ${bgColor};
           `;
 
-          // Force background color on the slide child component with inline style
+          // Force background color on child with !important to override Tailwind
           if (slideChild) {
               slideChild.style.cssText = `${originalSlideChildStyle}; background-color: ${bgColor} !important; width: 100%; height: 100%;`;
           }
 
-          // Force a reflow to ensure styles are applied
+          // STEP 2: Force browser reflow to apply styles
           void element.offsetHeight;
 
-          // Wait for browser to render
+          // STEP 3: Wait for browser to complete rendering
           await new Promise(resolve => setTimeout(resolve, 100));
 
-          // Use html-to-image which captures actual rendered pixels via SVG foreignObject
+          // STEP 4: Capture using html-to-image library
           const dataUrl = await window.htmlToImage.toPng(element, {
               width: PREVIEW_WIDTH,
               height: previewHeight,
               backgroundColor: bgColor,
-              pixelRatio: 1,
-              skipFonts: false,
-              cacheBust: true
+              pixelRatio: 1,    // 1:1 pixel ratio for exact dimensions
+              skipFonts: false, // Include fonts in export
+              cacheBust: true   // Avoid cached versions of images
           });
 
-          // Restore original styles
+          // STEP 5: Restore original styles
           element.setAttribute('style', originalElementStyle);
           if (slideChild) {
               slideChild.setAttribute('style', originalSlideChildStyle);
           }
 
-          // Convert data URL to blob
+          // Convert data URL to blob for download
           const response = await fetch(dataUrl);
           const blob = await response.blob();
           return blob;
       } catch (err) {
           console.error("Capture failed:", err);
-          // Restore styles even on error
+          // Always restore styles, even on error
           element.setAttribute('style', originalElementStyle);
           if (slideChild) {
               slideChild.setAttribute('style', originalSlideChildStyle);
