@@ -25,8 +25,14 @@ declare global {
 
 const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRatio, onUpdateSlides, onBack }) => {
   const [activeSlideId, setActiveSlideId] = useState<string>(slides[0].id);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [generatingSlideIds, setGeneratingSlideIds] = useState<Set<string>>(new Set());
   const [isDownloading, setIsDownloading] = useState(false);
+
+  // Keep a ref to the latest slides to avoid stale closure issues in async handlers
+  const slidesRef = useRef(slides);
+  useEffect(() => {
+    slidesRef.current = slides;
+  }, [slides]);
   
   // Global Settings
   const [showSlideNumbers, setShowSlideNumbers] = useState(true);
@@ -232,7 +238,10 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
   };
 
   const handleStylizeImage = async () => {
-    if (!pendingUploadImage || !stylizePrompt.trim()) return;
+    if (!pendingUploadImage || !stylizePrompt.trim() || !activeSlide) return;
+
+    // Capture slide ID at call time
+    const slideId = activeSlide.id;
 
     setIsStylizing(true);
     try {
@@ -245,13 +254,24 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
         selectedImageModel
       );
 
-      const newSlides = [...slides];
+      // Use ref to get latest slides (avoids stale closure)
+      const currentSlides = slidesRef.current;
+      const slideIndex = currentSlides.findIndex(s => s.id === slideId);
+
+      // Handle case where slide was deleted during stylization
+      if (slideIndex === -1) {
+        console.warn('Slide was deleted during image stylization');
+        return;
+      }
+
+      const slide = currentSlides[slideIndex];
+      const newSlides = [...currentSlides];
       const isStoryteller = style === CarouselStyle.STORYTELLER;
-      newSlides[activeIndex] = {
-        ...activeSlide,
+      newSlides[slideIndex] = {
+        ...slide,
         showImage: true,
         imageUrl: stylizedImage,
-        imageScale: activeSlide.imageScale || (isStoryteller ? 45 : 50),
+        imageScale: slide.imageScale || (isStoryteller ? 45 : 50),
         overlayImage: isStoryteller ? true : undefined
       };
       onUpdateSlides(newSlides);
@@ -276,18 +296,35 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
 
   const handleGenerateImage = async () => {
     if (!activeSlide) return;
-    setIsGeneratingImage(true);
+
+    // Capture slide ID and prompt at call time (not the whole slide object)
+    const slideId = activeSlide.id;
+    const prompt = activeSlide.imagePrompt || `An abstract representation of: ${activeSlide.content.substring(0, 50)}`;
+
+    // Add this slide to generating set (allows concurrent generation)
+    setGeneratingSlideIds(prev => new Set(prev).add(slideId));
+
     try {
-      const prompt = activeSlide.imagePrompt || `An abstract representation of: ${activeSlide.content.substring(0, 50)}`;
       const base64Image = await generateSlideImage(prompt, imageAspectRatio, selectedImageModel);
-      
-      const newSlides = [...slides];
+
+      // Use ref to get latest slides (avoids stale closure)
+      const currentSlides = slidesRef.current;
+      const slideIndex = currentSlides.findIndex(s => s.id === slideId);
+
+      // Handle case where slide was deleted during generation
+      if (slideIndex === -1) {
+        console.warn('Slide was deleted during image generation');
+        return;
+      }
+
+      const slide = currentSlides[slideIndex];
+      const newSlides = [...currentSlides];
       const isStoryteller = style === CarouselStyle.STORYTELLER;
-      newSlides[activeIndex] = { 
-          ...activeSlide, 
-          showImage: true, 
+      newSlides[slideIndex] = {
+          ...slide,
+          showImage: true,
           imageUrl: base64Image,
-          imageScale: activeSlide.imageScale || (isStoryteller ? 45 : 50),
+          imageScale: slide.imageScale || (isStoryteller ? 45 : 50),
           overlayImage: isStoryteller ? true : undefined
       };
       onUpdateSlides(newSlides);
@@ -295,7 +332,12 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
       console.error(error);
       alert("Failed to generate image. Try again or check the console for details.");
     } finally {
-      setIsGeneratingImage(false);
+      // Remove this slide from generating set
+      setGeneratingSlideIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(slideId);
+        return newSet;
+      });
     }
   };
 
@@ -754,7 +796,7 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* Generation Status Indicator */}
+                  {/* Generation Status Indicator (batch mode) */}
                   {slideGenerationStatus[slide.id] && (
                     <span className={`text-xs ${
                       slideGenerationStatus[slide.id] === 'generating' ? 'text-yellow-400 animate-pulse' :
@@ -765,6 +807,11 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                       {slideGenerationStatus[slide.id] === 'success' && '✓'}
                       {slideGenerationStatus[slide.id] === 'error' && '✗'}
                     </span>
+                  )}
+
+                  {/* Individual generation indicator (non-batch mode) */}
+                  {!slideGenerationStatus[slide.id] && generatingSlideIds.has(slide.id) && (
+                    <span className="text-xs text-blue-400 animate-pulse">...</span>
                   )}
 
                   {!batchMode && (
@@ -1112,12 +1159,12 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                                 accept="image/*"
                                 onChange={handleFileUpload}
                             />
-                            <button 
+                            <button
                                 onClick={handleGenerateImage}
-                                disabled={isGeneratingImage}
-                                className={`bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-semibold transition-colors flex items-center justify-center ${isGeneratingImage ? 'opacity-70 cursor-wait' : ''}`}
+                                disabled={generatingSlideIds.has(activeSlide.id)}
+                                className={`bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-semibold transition-colors flex items-center justify-center ${generatingSlideIds.has(activeSlide.id) ? 'opacity-70 cursor-wait' : ''}`}
                             >
-                                {isGeneratingImage ? 'Generating...' : 'AI Generate'}
+                                {generatingSlideIds.has(activeSlide.id) ? 'Generating...' : 'AI Generate'}
                             </button>
                         </div>
                         
