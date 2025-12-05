@@ -1,0 +1,16 @@
+name: carouselai
+id: ari:cloud:compass:752ee8d2-042d-435c-8bee-e942d7afcef2:component/b2177de5-7d3b-4376-b095-4513b1fb4710/993156c8-aa6d-4fb6-a249-1e3f7ad48d91
+description: Crie posts do instagram usando o estilo Carousel usando IA para te ajudar
+configVersion: 1
+typeId: SERVICE
+fields:
+  tier: 4
+links:
+  - name: null
+    type: REPOSITORY
+    url: https://github.com/Gestao-Quatro-Ponto-Zero/carouselai
+relationships:
+  DEPENDS_ON: []
+labels:
+  - source:github
+customFields: null
