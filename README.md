@@ -108,7 +108,7 @@ CarouselAI helps content creators, marketers, and social media managers build pr
 
 5. **Open your browser**
 
-   Navigate to [http://localhost:5173](http://localhost:5173)
+   Navigate to [http://localhost:3001](http://localhost:3001/)
 
 ## Usage Guide
 
