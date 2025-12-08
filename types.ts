@@ -52,6 +52,15 @@ export type Theme = 'LIGHT' | 'DARK';
  */
 export type FontStyle = 'MODERN' | 'SERIF' | 'TECH';
 
+/**
+ * Content layout options for element ordering (Twitter style).
+ * Controls where the illustration image appears relative to text content.
+ * - default: Header → All Content → Image (current behavior)
+ * - image-after-title: Header → Title(H1/H2) → Image → Body text
+ * - image-first: Header → Image → All Content
+ */
+export type ContentLayout = 'default' | 'image-after-title' | 'image-first';
+
 // ============================================================================
 // INTERFACES
 // ============================================================================
@@ -100,6 +109,15 @@ export interface Slide {
   gradientHeight?: number;       // Storyteller: gradient overlay size (0-100)
   fontStyle?: FontStyle;         // Per-slide font override (undefined = use global)
   fontScale?: number;            // Per-slide font size multiplier (0.5-1.5, undefined = use global)
+
+  // Content layout (Twitter style)
+  contentLayout?: ContentLayout; // Element ordering (default = 'default')
+
+  // Background image (full-bleed with color overlay)
+  showBackgroundImage?: boolean;      // Master toggle for background image
+  backgroundImageUrl?: string;        // Full-bleed background image source
+  backgroundOverlayColor?: string;    // Overlay color (hex, default: theme-based)
+  backgroundOverlayOpacity?: number;  // Overlay opacity 0-100 (default: 50)
 }
 
 /**

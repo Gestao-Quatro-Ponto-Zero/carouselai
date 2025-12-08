@@ -225,12 +225,13 @@ const App: React.FC = () => {
 
   if (step === 'WORKSPACE') {
     return (
-      <Workspace 
+      <Workspace
         slides={slides}
         profile={profile}
         style={style}
         aspectRatio={aspectRatio}
         onUpdateSlides={setSlides}
+        onStyleChange={setStyle}
         onBack={() => setStep('METHOD_SELECT')}
       />
     );

@@ -40,9 +40,9 @@ npm run preview      # Preview production build
 
 ## Key Files to Understand
 
-- **`Workspace.tsx`** - The main editor component. Contains slide management, image generation, export functionality, and all sidebar controls.
-- **`geminiService.ts`** - Handles all Gemini API calls. Exports `generateCarouselContent`, `generateSlideImage`, `stylizeImage`, `processDocument`.
-- **`types.ts`** - All TypeScript types. Key types: `Slide`, `Profile`, `CarouselStyle`, `Theme`, `AspectRatio`, `UploadedDocument`.
+- **`Workspace.tsx`** - The main editor component. Contains slide management, image generation, export functionality, and all sidebar controls. Also handles background image generation, layout ordering, and style conversion.
+- **`geminiService.ts`** - Handles all Gemini API calls. Exports `generateCarouselContent`, `generateSlideImage`, `stylizeImage`, `editImage`, `refineCarouselContent`, `processDocument`.
+- **`types.ts`** - All TypeScript types. Key types: `Slide`, `Profile`, `CarouselStyle`, `Theme`, `AspectRatio`, `FontStyle`, `ContentLayout`, `UploadedDocument`, `CarouselProject`.
 
 ## Code Style
 
@@ -68,9 +68,16 @@ npm run preview      # Preview production build
 - Supported aspect ratios for images: 1:1, 4:5, 9:16, 16:9
 
 ### Styling
-- Two carousel styles: `TWITTER` and `STORYTELLER`
+- Two carousel styles: `TWITTER` and `STORYTELLER` (convertible via UI)
 - Each style supports `DARK` and `LIGHT` themes
 - Post aspect ratios: `1/1` (square) and `4/5` (portrait)
+
+### Layout System
+- **ContentLayout** (Twitter only): Controls element ordering - `'default'` | `'image-after-title'` | `'image-first'`
+- **Background Image**: Full-bleed background with solid color overlay, separate from illustration image
+  - Z-index layers: background (z-0) → overlay (z-1) → illustration (z-2) → content (z-10)
+  - Customizable overlay color and opacity (0-100%)
+  - AI generation with custom prompts or auto-generated from slide content
 
 ## Important Constraints
 

@@ -155,6 +155,13 @@ const StorytellerSlide: React.FC<StorytellerSlideProps> = ({ slide, profile, ind
   const imageOffsetY = slide.imageOffsetY !== undefined ? slide.imageOffsetY : 50; // Vertical crop position
   const gradientHeight = slide.gradientHeight !== undefined ? slide.gradientHeight : 60; // Fade overlay size
 
+  // ============================================================================
+  // BACKGROUND IMAGE SETTINGS (separate from illustration image)
+  // ============================================================================
+  const showBackground = slide.showBackgroundImage && slide.backgroundImageUrl;
+  const bgOverlayColor = slide.backgroundOverlayColor || (theme === 'DARK' ? '#000000' : '#FFFFFF');
+  const bgOverlayOpacity = slide.backgroundOverlayOpacity !== undefined ? slide.backgroundOverlayOpacity : 50;
+
   // FONT SETTINGS:
   // Per-slide settings override global settings
   const effectiveFontStyle = slide.fontStyle || fontStyle;
@@ -183,15 +190,43 @@ const StorytellerSlide: React.FC<StorytellerSlideProps> = ({ slide, profile, ind
       className={`w-full h-full flex flex-col relative overflow-hidden ${forExport ? '' : 'transition-colors duration-300'}`}
       style={{ backgroundColor: bgColor, fontFamily }}
     >
-      
+
       {/* ================================================================
-          OVERLAY MODE (Cinematic Fade)
+          BACKGROUND IMAGE LAYER (z-0)
+          Full-bleed background with solid color overlay.
+          This is SEPARATE from the illustration image (overlay/split modes).
+          ================================================================ */}
+      {showBackground && (
+        <>
+          {/* Background Image - covers entire slide */}
+          <div className="absolute inset-0 z-0">
+            <img
+              src={slide.backgroundImageUrl}
+              alt=""
+              {...(slide.backgroundImageUrl?.startsWith('data:') ? {} : { crossOrigin: 'anonymous' })}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          {/* Solid Color Overlay */}
+          <div
+            className="absolute inset-0 z-[1]"
+            style={{
+              backgroundColor: bgOverlayColor,
+              opacity: bgOverlayOpacity / 100
+            }}
+          />
+        </>
+      )}
+
+      {/* ================================================================
+          OVERLAY MODE (Cinematic Fade) - Illustration Image
           Image positioned absolutely, covering top portion of slide.
           A gradient fades from image into background color.
+          Note: z-index is 2 to sit above background but below content
           ================================================================ */}
       {isOverlay && slide.imageUrl && (
         <div
-            className="absolute top-0 left-0 right-0 z-0"
+            className="absolute top-0 left-0 right-0 z-[2]"
             style={{ height: `${overlayImageHeight}%`, overflow: 'hidden' }}
         >
           {/*
@@ -231,10 +266,10 @@ const StorytellerSlide: React.FC<StorytellerSlideProps> = ({ slide, profile, ind
         </div>
       )}
 
-      {/* --- SPLIT MODE (Hard Line) --- */}
+      {/* --- SPLIT MODE (Hard Line) - Illustration Image --- */}
       {showSplit && slide.imageUrl && (
         <div
-          className="w-full relative z-0"
+          className="w-full relative z-[2]"
           style={{
             height: `${splitImageHeight}%`,
             overflow: 'hidden',

@@ -58,11 +58,21 @@ CarouselAI helps content creators, marketers, and social media managers build pr
 - **Adjustable Header/Footer Size** - Scale from 50% to 200%
 - **Slide Numbers** - Toggle slide count indicator
 - **Verified Badge** - Add authenticity to your profile display
+- **Style Conversion** - Convert entire carousel between Twitter and Storyteller styles with one click
 - **Font Controls**:
   - Three font styles: Modern (sans-serif), Serif (Playfair Display), Tech (JetBrains Mono)
   - Global font size adjustment (50% - 150%)
   - Per-slide font overrides for mixed typography
-- **Image Controls**:
+- **Layout Controls** (Twitter style):
+  - Flexible element ordering: Image below content (default), after title, or at top
+  - Per-slide layout customization
+- **Background Image**:
+  - Full-bleed background image with color overlay (both styles)
+  - Adjustable overlay color and opacity (0-100%)
+  - AI generation with custom prompts or auto-generated from content
+  - Upload your own background images
+  - Works independently from illustration images
+- **Illustration Image Controls**:
   - Height adjustment (10-90%)
   - Vertical position/cropping
   - Gradient overlay intensity (Storyteller mode)

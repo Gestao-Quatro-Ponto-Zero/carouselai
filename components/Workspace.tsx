@@ -18,7 +18,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Slide, Profile, CarouselStyle, CarouselProject, SlideType, AspectRatio, Theme, FontStyle } from '../types';
+import { Slide, Profile, CarouselStyle, CarouselProject, SlideType, AspectRatio, Theme, FontStyle, ContentLayout } from '../types';
 import TwitterSlide from './TwitterSlide';
 import StorytellerSlide from './StorytellerSlide';
 import { generateSlideImage, stylizeImage, editImage, refineCarouselContent, getApiAspectRatio, IMAGE_MODEL_PRO, IMAGE_MODEL_FLASH, DEFAULT_IMAGE_STYLE, setApiKey, getApiKeyMasked, hasApiKey } from '../services/geminiService';
@@ -29,6 +29,7 @@ interface WorkspaceProps {
   style: CarouselStyle;
   aspectRatio: AspectRatio;
   onUpdateSlides: (slides: Slide[]) => void;
+  onStyleChange?: (style: CarouselStyle) => void;  // For style conversion
   onBack: () => void;
 }
 
@@ -41,7 +42,7 @@ declare global {
   }
 }
 
-const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRatio, onUpdateSlides, onBack }) => {
+const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRatio, onUpdateSlides, onStyleChange, onBack }) => {
   // ============================================================================
   // CORE STATE
   // ============================================================================
@@ -111,6 +112,12 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
   // ============================================================================
   const [showEditImageModal, setShowEditImageModal] = useState(false);
   const [editImagePrompt, setEditImagePrompt] = useState('');
+
+  // ============================================================================
+  // BACKGROUND IMAGE GENERATION STATE
+  // ============================================================================
+  const [generatingBackgroundIds, setGeneratingBackgroundIds] = useState<Set<string>>(new Set()); // Per-slide background generation
+  const [backgroundPrompt, setBackgroundPrompt] = useState(''); // User-provided prompt for background generation
   const [isEditingImage, setIsEditingImage] = useState(false);
 
   // ============================================================================
@@ -586,6 +593,34 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
   };
 
   // ============================================================================
+  // STYLE CONVERSION HANDLER
+  // ============================================================================
+
+  /**
+   * Converts the carousel between Twitter and Storyteller styles.
+   * Adjusts slide properties for optimal display in the new style.
+   */
+  const handleConvertStyle = () => {
+    if (!onStyleChange) return;
+
+    const newStyle = style === CarouselStyle.TWITTER
+      ? CarouselStyle.STORYTELLER
+      : CarouselStyle.TWITTER;
+
+    // Adjust slide properties for the new style
+    const convertedSlides = slides.map(slide => ({
+      ...slide,
+      // Reset style-specific layout properties
+      overlayImage: newStyle === CarouselStyle.STORYTELLER ? true : undefined,
+      imageScale: newStyle === CarouselStyle.STORYTELLER ? 45 : 50,
+      contentLayout: undefined, // Reset to default for new style
+    }));
+
+    onUpdateSlides(convertedSlides);
+    onStyleChange(newStyle);
+  };
+
+  // ============================================================================
   // IMAGE GENERATION HANDLERS
   // ============================================================================
 
@@ -636,6 +671,59 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
     } finally {
       // Remove this slide from generating set
       setGeneratingSlideIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(slideId);
+        return newSet;
+      });
+    }
+  };
+
+  /**
+   * Generates a background image for the current slide using AI.
+   * Uses user-provided prompt or falls back to slide content.
+   * Background images are full-bleed and work with a color overlay.
+   */
+  const handleGenerateBackgroundImage = async () => {
+    if (!activeSlide) return;
+
+    const slideId = activeSlide.id;
+
+    // Use user prompt if provided, otherwise create one from slide content
+    let prompt: string;
+    if (backgroundPrompt.trim()) {
+      prompt = backgroundPrompt.trim();
+    } else {
+      const contentSnippet = activeSlide.content.substring(0, 100).replace(/[#*_~]/g, '');
+      prompt = `Abstract atmospheric background for: ${contentSnippet}. Soft lighting, blurred details, suitable as text background.`;
+    }
+
+    setGeneratingBackgroundIds(prev => new Set(prev).add(slideId));
+
+    try {
+      // Use 1:1 aspect ratio for backgrounds (works well with any slide ratio)
+      const base64Image = await generateSlideImage(prompt, '1/1', selectedImageModel, globalImageStyle);
+
+      const currentSlides = slidesRef.current;
+      const slideIndex = currentSlides.findIndex(s => s.id === slideId);
+
+      if (slideIndex === -1) {
+        console.warn('Slide was deleted during background image generation');
+        return;
+      }
+
+      const slide = currentSlides[slideIndex];
+      const newSlides = [...currentSlides];
+      newSlides[slideIndex] = {
+        ...slide,
+        showBackgroundImage: true,
+        backgroundImageUrl: base64Image
+      };
+      onUpdateSlides(newSlides);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to generate background image. Try again or check the console for details.");
+    } finally {
+      setGeneratingBackgroundIds(prev => {
         const newSet = new Set(prev);
         newSet.delete(slideId);
         return newSet;
@@ -1315,6 +1403,26 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                 <div className="mb-6 border-b border-gray-700 pb-6">
                     <h3 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-4">Global Settings</h3>
 
+                    {/* Style Conversion */}
+                    {onStyleChange && (
+                        <div className="mb-4 p-3 bg-gray-700 rounded-lg">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span className="text-sm font-medium text-gray-300 block">Current Style</span>
+                                    <span className="text-xs text-gray-500">
+                                        {style === CarouselStyle.TWITTER ? 'Twitter' : 'Storyteller'}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={handleConvertStyle}
+                                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium rounded transition-colors"
+                                >
+                                    Convert to {style === CarouselStyle.TWITTER ? 'Storyteller' : 'Twitter'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* API Key Management */}
                     <div className="mb-4 p-3 bg-gray-700 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
@@ -1695,16 +1803,178 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                     </div>
                 </div>
 
-                {/* Image Toggle */}
+                {/* ================================================================
+                    BACKGROUND IMAGE SECTION
+                    Full-bleed background with color overlay - separate from illustration
+                    ================================================================ */}
+                <div className="mb-4 p-3 bg-gray-750 rounded-lg border border-gray-700">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="font-semibold text-sm">Background Image</span>
+                        <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input
+                                type="checkbox"
+                                checked={activeSlide.showBackgroundImage || false}
+                                onChange={(e) => {
+                                    const newSlides = [...slides];
+                                    newSlides[activeIndex] = { ...activeSlide, showBackgroundImage: e.target.checked };
+                                    onUpdateSlides(newSlides);
+                                }}
+                                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 right-5"
+                                style={{ right: activeSlide.showBackgroundImage ? '0' : 'auto', left: activeSlide.showBackgroundImage ? 'auto' : '0' }}
+                            />
+                            <label className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${activeSlide.showBackgroundImage ? 'bg-purple-600' : 'bg-gray-600'}`}></label>
+                        </div>
+                    </div>
+
+                    {activeSlide.showBackgroundImage && (
+                        <div className="space-y-3 animate-fade-in">
+                            {/* Background Prompt Input */}
+                            {!activeSlide.backgroundImageUrl && (
+                                <div>
+                                    <input
+                                        type="text"
+                                        value={backgroundPrompt}
+                                        onChange={(e) => setBackgroundPrompt(e.target.value)}
+                                        placeholder="Describe background (or leave empty for auto)"
+                                        className="w-full bg-gray-700 text-gray-200 text-xs px-3 py-2 rounded border border-gray-600 focus:border-purple-500 focus:outline-none placeholder-gray-500"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Background Image Preview / Upload */}
+                            {activeSlide.backgroundImageUrl ? (
+                                <div className="relative aspect-video rounded-md overflow-hidden border border-gray-600">
+                                    <img src={activeSlide.backgroundImageUrl} alt="Background" className="w-full h-full object-cover" />
+                                    <button
+                                        onClick={() => {
+                                            const newSlides = [...slides];
+                                            newSlides[activeIndex] = { ...activeSlide, backgroundImageUrl: undefined };
+                                            onUpdateSlides(newSlides);
+                                        }}
+                                        className="absolute top-1 right-1 bg-black bg-opacity-50 hover:bg-red-500 text-white p-1 rounded-full transition-colors"
+                                        title="Remove background"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex gap-2">
+                                    {/* Upload Button */}
+                                    <label className="flex-1 flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-300 py-2 px-3 rounded cursor-pointer text-xs transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                        </svg>
+                                        Upload
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onload = (ev) => {
+                                                        const newSlides = [...slides];
+                                                        newSlides[activeIndex] = {
+                                                            ...activeSlide,
+                                                            backgroundImageUrl: ev.target?.result as string
+                                                        };
+                                                        onUpdateSlides(newSlides);
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                                e.target.value = '';
+                                            }}
+                                        />
+                                    </label>
+                                    {/* AI Generate Button */}
+                                    <button
+                                        onClick={handleGenerateBackgroundImage}
+                                        disabled={generatingBackgroundIds.has(activeSlide.id)}
+                                        className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 disabled:cursor-not-allowed text-white py-2 px-3 rounded text-xs transition-colors"
+                                    >
+                                        {generatingBackgroundIds.has(activeSlide.id) ? (
+                                            <>
+                                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Generating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                </svg>
+                                                AI Generate
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Overlay Color Picker */}
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-400">Overlay Color</span>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={activeSlide.backgroundOverlayColor || (theme === 'DARK' ? '#000000' : '#FFFFFF')}
+                                        onChange={(e) => {
+                                            const newSlides = [...slides];
+                                            newSlides[activeIndex] = { ...activeSlide, backgroundOverlayColor: e.target.value };
+                                            onUpdateSlides(newSlides);
+                                        }}
+                                        className="w-8 h-8 rounded cursor-pointer border border-gray-600"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            const newSlides = [...slides];
+                                            newSlides[activeIndex] = { ...activeSlide, backgroundOverlayColor: undefined };
+                                            onUpdateSlides(newSlides);
+                                        }}
+                                        className="text-[10px] text-gray-500 hover:text-gray-300"
+                                    >
+                                        Reset
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Overlay Opacity Slider */}
+                            <div>
+                                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                    <span>Overlay Opacity</span>
+                                    <span>{activeSlide.backgroundOverlayOpacity !== undefined ? activeSlide.backgroundOverlayOpacity : 50}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={activeSlide.backgroundOverlayOpacity !== undefined ? activeSlide.backgroundOverlayOpacity : 50}
+                                    onChange={(e) => {
+                                        const newSlides = [...slides];
+                                        newSlides[activeIndex] = { ...activeSlide, backgroundOverlayOpacity: parseInt(e.target.value) };
+                                        onUpdateSlides(newSlides);
+                                    }}
+                                    className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Image Toggle (Illustration Image) */}
                 <div className="flex items-center justify-between mb-4">
-                     <span className="font-semibold text-sm">Image</span>
+                     <span className="font-semibold text-sm">Illustration Image</span>
                      <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                        <input 
-                            type="checkbox" 
+                        <input
+                            type="checkbox"
                             checked={activeSlide.showImage}
                             onChange={(e) => handleToggleImage(e.target.checked)}
                             className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 right-5"
-                            style={{ right: activeSlide.showImage ? '0' : 'auto', left: activeSlide.showImage ? 'auto' : '0' }} 
+                            style={{ right: activeSlide.showImage ? '0' : 'auto', left: activeSlide.showImage ? 'auto' : '0' }}
                         />
                         <label className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${activeSlide.showImage ? 'bg-blue-600' : 'bg-gray-600'}`}></label>
                     </div>
@@ -1718,14 +1988,65 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                             <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-700">
                                 <span className="text-xs text-gray-400">Top Fade / Overlay</span>
                                 <div className="relative inline-block w-8 mr-1 align-middle select-none">
-                                    <input 
-                                        type="checkbox" 
+                                    <input
+                                        type="checkbox"
                                         checked={activeSlide.overlayImage !== false}
                                         onChange={(e) => handleToggleOverlay(e.target.checked)}
                                         className="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-2 appearance-none cursor-pointer checked:right-0 right-4"
-                                        style={{ right: activeSlide.overlayImage !== false ? '0' : 'auto', left: activeSlide.overlayImage !== false ? 'auto' : '0' }} 
+                                        style={{ right: activeSlide.overlayImage !== false ? '0' : 'auto', left: activeSlide.overlayImage !== false ? 'auto' : '0' }}
                                     />
                                     <label className={`toggle-label block overflow-hidden h-4 rounded-full cursor-pointer ${activeSlide.overlayImage !== false ? 'bg-purple-600' : 'bg-gray-600'}`}></label>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Content Layout (Twitter Only) */}
+                        {style === CarouselStyle.TWITTER && (
+                            <div className="mb-4 pb-4 border-b border-gray-700">
+                                <span className="text-xs text-gray-400 block mb-2">Image Position</span>
+                                <div className="flex gap-1">
+                                    <button
+                                        onClick={() => {
+                                            const newSlides = [...slides];
+                                            newSlides[activeIndex] = { ...activeSlide, contentLayout: 'default' };
+                                            onUpdateSlides(newSlides);
+                                        }}
+                                        className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
+                                            (!activeSlide.contentLayout || activeSlide.contentLayout === 'default')
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        }`}
+                                    >
+                                        Below
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const newSlides = [...slides];
+                                            newSlides[activeIndex] = { ...activeSlide, contentLayout: 'image-after-title' };
+                                            onUpdateSlides(newSlides);
+                                        }}
+                                        className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
+                                            activeSlide.contentLayout === 'image-after-title'
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        }`}
+                                    >
+                                        After Title
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const newSlides = [...slides];
+                                            newSlides[activeIndex] = { ...activeSlide, contentLayout: 'image-first' };
+                                            onUpdateSlides(newSlides);
+                                        }}
+                                        className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
+                                            activeSlide.contentLayout === 'image-first'
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        }`}
+                                    >
+                                        Top
+                                    </button>
                                 </div>
                             </div>
                         )}
