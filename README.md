@@ -29,6 +29,7 @@ CarouselAI helps content creators, marketers, and social media managers build pr
 ### AI-Powered Content Generation
 
 - **Gemini 3 Pro Integration** - Uses Google's latest AI model for high-quality content
+- **Document Upload** - Upload PDF, TXT, or Markdown files to generate carousels from existing content
 - **Automatic Slide Structuring** - Generates 5-10 slides with proper flow (hook, content, CTA)
 - **Smart Slide Types** - Creates Cover slides, Content slides, and Call-to-Action slides
 - **Image Prompt Suggestions** - AI suggests relevant image prompts for each slide
@@ -116,6 +117,7 @@ CarouselAI helps content creators, marketers, and social media managers build pr
 
 1. **Launch the app** and select "Use AI Magic"
 2. **Enter your topic** - Be specific for better results (e.g., "10 productivity tips for remote workers")
+   - *Optional:* Upload a PDF, TXT, or Markdown file to generate content from existing documents
 3. **Choose a style** - Twitter for text-focused, Storyteller for image-heavy
 4. **Select aspect ratio** - 1:1 for feed posts, 4:5 for maximum visibility
 5. **Review generated content** - Edit text, adjust images, customize styling

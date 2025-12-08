@@ -41,8 +41,8 @@ npm run preview      # Preview production build
 ## Key Files to Understand
 
 - **`Workspace.tsx`** - The main editor component. Contains slide management, image generation, export functionality, and all sidebar controls.
-- **`geminiService.ts`** - Handles all Gemini API calls. Exports `generateCarouselContent`, `generateSlideImage`, `stylizeImage`.
-- **`types.ts`** - All TypeScript types. Key types: `Slide`, `Profile`, `CarouselStyle`, `Theme`, `AspectRatio`.
+- **`geminiService.ts`** - Handles all Gemini API calls. Exports `generateCarouselContent`, `generateSlideImage`, `stylizeImage`, `processDocument`.
+- **`types.ts`** - All TypeScript types. Key types: `Slide`, `Profile`, `CarouselStyle`, `Theme`, `AspectRatio`, `UploadedDocument`.
 
 ## Code Style
 
@@ -57,8 +57,9 @@ npm run preview      # Preview production build
 
 ### Export System
 - Uses `html-to-image` library (NOT html2canvas) for PNG export
-- Captures actual rendered DOM pixels via SVG foreignObject
-- No special `forExport` prop handling needed - same code for preview and export
+- Captures visible preview element directly (not hidden off-screen elements)
+- Waits for all images to load before capturing
+- `crossOrigin="anonymous"` only needed for external URLs, NOT for data URIs (base64)
 
 ### AI Integration
 - API key stored in localStorage (user enters in UI) or `.env.local`
@@ -75,7 +76,7 @@ npm run preview      # Preview production build
 
 - NEVER commit `.env.local` (contains API keys)
 - NEVER hardcode API keys in source files
-- External images need `crossOrigin="anonymous"` for export to work
+- External images need `crossOrigin="anonymous"` for export, but NOT data URIs
 - Tailwind classes only - no inline style objects unless dynamic values needed
 
 ## Testing Changes
