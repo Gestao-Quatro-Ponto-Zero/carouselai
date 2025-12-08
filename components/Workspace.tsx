@@ -21,7 +21,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Slide, Profile, CarouselStyle, SlideType, AspectRatio, Theme, FontStyle } from '../types';
 import TwitterSlide from './TwitterSlide';
 import StorytellerSlide from './StorytellerSlide';
-import { generateSlideImage, stylizeImage, editImage, getApiAspectRatio, IMAGE_MODEL_PRO, IMAGE_MODEL_FLASH, setApiKey, getApiKeyMasked, hasApiKey } from '../services/geminiService';
+import { generateSlideImage, stylizeImage, editImage, refineCarouselContent, getApiAspectRatio, IMAGE_MODEL_PRO, IMAGE_MODEL_FLASH, setApiKey, getApiKeyMasked, hasApiKey } from '../services/geminiService';
 
 interface WorkspaceProps {
   slides: Slide[];
@@ -107,6 +107,13 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
   const [showEditImageModal, setShowEditImageModal] = useState(false);
   const [editImagePrompt, setEditImagePrompt] = useState('');
   const [isEditingImage, setIsEditingImage] = useState(false);
+
+  // ============================================================================
+  // AI CONTENT REFINEMENT STATE
+  // ============================================================================
+  const [globalFeedback, setGlobalFeedback] = useState('');
+  const [slideFeedback, setSlideFeedback] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
 
   /**
    * Finds the closest API-supported aspect ratio for an uploaded image.
@@ -441,6 +448,49 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
       alert("Failed to edit image. Please try again.");
     } finally {
       setIsEditingImage(false);
+    }
+  };
+
+  // ============================================================================
+  // AI CONTENT REFINEMENT HANDLERS
+  // ============================================================================
+
+  /**
+   * Refines all slides based on global feedback.
+   * E.g., "Translate to Spanish", "Make more technical", "Make it more fun"
+   */
+  const handleGlobalRefine = async () => {
+    if (!globalFeedback.trim() || isRefining) return;
+
+    setIsRefining(true);
+    try {
+      const refinedSlides = await refineCarouselContent(slides, globalFeedback);
+      onUpdateSlides(refinedSlides);
+      setGlobalFeedback('');
+    } catch (error) {
+      console.error("Failed to refine content:", error);
+      alert("Failed to refine content. Please try again.");
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  /**
+   * Refines a single slide based on per-slide feedback.
+   */
+  const handleSlideRefine = async () => {
+    if (!slideFeedback.trim() || isRefining || !activeSlide) return;
+
+    setIsRefining(true);
+    try {
+      const refinedSlides = await refineCarouselContent(slides, slideFeedback, activeIndex);
+      onUpdateSlides(refinedSlides);
+      setSlideFeedback('');
+    } catch (error) {
+      console.error("Failed to refine slide:", error);
+      alert("Failed to refine slide. Please try again.");
+    } finally {
+      setIsRefining(false);
     }
   };
 
@@ -1306,7 +1356,7 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                     </div>
 
                     {/* Font Size Slider */}
-                    <div>
+                    <div className="mb-4">
                         <div className="flex justify-between text-xs text-gray-400 mb-1">
                             <span>Font Size</span>
                             <span>{Math.round(fontScale * 100)}%</span>
@@ -1320,6 +1370,37 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                             onChange={(e) => setFontScale(parseFloat(e.target.value))}
                             className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
                         />
+                    </div>
+
+                    {/* AI Content Refinement (Global) */}
+                    <div className="p-3 bg-gray-700 rounded-lg">
+                        <label className="text-sm font-medium text-gray-300 mb-2 block">
+                            Refine All Slides with AI
+                        </label>
+                        <textarea
+                            value={globalFeedback}
+                            onChange={(e) => setGlobalFeedback(e.target.value)}
+                            placeholder="E.g., 'Translate to Spanish', 'Make more technical', 'Make it more fun'"
+                            className="w-full h-16 bg-gray-800 border border-gray-600 rounded p-2 text-sm text-white resize-none focus:ring-1 focus:ring-blue-500 outline-none mb-2"
+                            disabled={isRefining}
+                        />
+                        <button
+                            onClick={handleGlobalRefine}
+                            disabled={!globalFeedback.trim() || isRefining}
+                            className="w-full py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs font-semibold rounded transition-colors flex items-center justify-center"
+                        >
+                            {isRefining ? (
+                                <>
+                                    <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Refining...
+                                </>
+                            ) : (
+                                'Refine All Slides'
+                            )}
+                        </button>
                     </div>
                 </div>
 
@@ -1340,11 +1421,46 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
 
                 <textarea
                     ref={textAreaRef}
-                    className="w-full min-h-[8rem] bg-gray-700 border border-gray-600 rounded p-3 text-white text-sm mb-4 focus:ring-2 focus:ring-blue-500 outline-none resize-y font-mono"
+                    className="w-full min-h-[8rem] bg-gray-700 border border-gray-600 rounded p-3 text-white text-sm mb-3 focus:ring-2 focus:ring-blue-500 outline-none resize-y font-mono"
                     value={activeSlide.content}
                     onChange={(e) => handleTextChange(e.target.value)}
                     placeholder="Enter text (Markdown supported)..."
                 />
+
+                {/* Per-Slide AI Refinement */}
+                <div className="mb-4 flex gap-2">
+                    <input
+                        type="text"
+                        value={slideFeedback}
+                        onChange={(e) => setSlideFeedback(e.target.value)}
+                        placeholder="Refine this slide... (e.g., 'make it shorter')"
+                        className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-purple-500"
+                        disabled={isRefining}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSlideRefine();
+                            }
+                        }}
+                    />
+                    <button
+                        onClick={handleSlideRefine}
+                        disabled={!slideFeedback.trim() || isRefining}
+                        className="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs font-semibold rounded transition-colors flex items-center"
+                        title="Refine this slide"
+                    >
+                        {isRefining ? (
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        )}
+                    </button>
+                </div>
 
                 {/* Per-Slide Font Override */}
                 <div className="mb-4 p-3 bg-gray-750 rounded-lg border border-gray-700">

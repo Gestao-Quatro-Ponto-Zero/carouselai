@@ -387,6 +387,167 @@ export const generateCarouselContent = async (
 };
 
 // ============================================================================
+// CONTENT REFINEMENT
+// ============================================================================
+
+/**
+ * Refines existing carousel content based on user feedback.
+ *
+ * Can operate in two modes:
+ * 1. GLOBAL: Refine all slides at once (slideIndex = undefined)
+ * 2. PER-SLIDE: Refine only a specific slide (slideIndex = number)
+ *
+ * @param slides - Current array of slides to refine
+ * @param feedback - User's refinement instructions (e.g., "Translate to Spanish", "Make more technical")
+ * @param slideIndex - Optional index of specific slide to refine (undefined = all slides)
+ * @param modelName - Which model to use (defaults to Pro, falls back automatically)
+ * @returns Updated array of Slide objects
+ */
+export const refineCarouselContent = async (
+  slides: Slide[],
+  feedback: string,
+  slideIndex?: number,
+  modelName: string = TEXT_MODEL_PRO
+): Promise<Slide[]> => {
+  const isGlobal = slideIndex === undefined;
+
+  // Build current content representation for the AI
+  const formatSlide = (s: Slide, i: number) =>
+    `Slide ${i + 1} (${s.type}):\n${s.content}`;
+
+  const currentContent = isGlobal
+    ? slides.map((s, i) => formatSlide(s, i)).join('\n\n')
+    : formatSlide(slides[slideIndex], slideIndex);
+
+  // Build the refinement prompt
+  const prompt = isGlobal
+    ? `You are refining an Instagram carousel. Apply the following feedback to ALL slides while maintaining the overall structure and flow.
+
+FEEDBACK: "${feedback}"
+
+CURRENT CAROUSEL CONTENT:
+${currentContent}
+
+Requirements:
+1. Apply the feedback consistently across all ${slides.length} slides
+2. Maintain each slide's type (COVER, CONTENT, CTA)
+3. Keep the same number of slides (${slides.length})
+4. Preserve Markdown formatting (# headers, **bold**, etc.)
+5. Keep suggestedImagePrompt relevant to the new content
+
+Return strictly JSON with the refined slides.`
+    : `You are refining a single slide from an Instagram carousel. Apply the following feedback to this specific slide only.
+
+FEEDBACK: "${feedback}"
+
+CURRENT SLIDE CONTENT:
+${currentContent}
+
+Requirements:
+1. Apply the feedback to this slide
+2. Maintain the slide type: ${slides[slideIndex].type}
+3. Preserve Markdown formatting (# headers, **bold**, etc.)
+4. Update suggestedImagePrompt if content changed significantly
+
+Return strictly JSON with ONE refined slide.`;
+
+  // Inner function to call the API
+  const generate = async (m: string) => {
+    const response = await ai.models.generateContent({
+      model: m,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: isGlobal
+          ? {
+              // Schema for multiple slides (global refinement)
+              type: Type.OBJECT,
+              properties: {
+                slides: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      type: { type: Type.STRING },
+                      content: { type: Type.STRING },
+                      needsImage: { type: Type.BOOLEAN },
+                      suggestedImagePrompt: { type: Type.STRING }
+                    },
+                    required: ["type", "content", "needsImage", "suggestedImagePrompt"]
+                  }
+                }
+              }
+            }
+          : {
+              // Schema for single slide (per-slide refinement)
+              type: Type.OBJECT,
+              properties: {
+                type: { type: Type.STRING },
+                content: { type: Type.STRING },
+                needsImage: { type: Type.BOOLEAN },
+                suggestedImagePrompt: { type: Type.STRING }
+              },
+              required: ["type", "content", "needsImage", "suggestedImagePrompt"]
+            }
+      }
+    });
+    return response;
+  };
+
+  // Parse the response and merge with existing slides
+  const parseResponse = (response: any): Slide[] => {
+    const json = JSON.parse(response.text || "{}");
+
+    if (isGlobal) {
+      // Global: Replace all slides content while preserving IDs and image URLs
+      const refinedSlides = json.slides || [];
+      return slides.map((original, i) => ({
+        ...original,
+        type: refinedSlides[i]?.type || original.type,
+        content: refinedSlides[i]?.content || original.content,
+        showImage: refinedSlides[i]?.needsImage ?? original.showImage,
+        imagePrompt: refinedSlides[i]?.suggestedImagePrompt || original.imagePrompt
+        // Preserve: id, imageUrl, imageScale, overlayImage, imageOffsetY, gradientHeight, fontStyle, fontScale
+      }));
+    } else {
+      // Per-slide: Update only the specified slide
+      return slides.map((original, i) => {
+        if (i !== slideIndex) return original;
+        return {
+          ...original,
+          type: json.type || original.type,
+          content: json.content || original.content,
+          showImage: json.needsImage ?? original.showImage,
+          imagePrompt: json.suggestedImagePrompt || original.imagePrompt
+        };
+      });
+    }
+  };
+
+  try {
+    const response = await generate(modelName);
+    return parseResponse(response);
+  } catch (error) {
+    console.warn(`Error refining content with ${modelName}:`, error);
+
+    // Same fallback chain as generateCarouselContent
+    let fallbackModel: string | null = null;
+    if (modelName === TEXT_MODEL_PRO) {
+      fallbackModel = TEXT_MODEL_PRO_2_5;
+    } else if (modelName === TEXT_MODEL_PRO_2_5) {
+      fallbackModel = TEXT_MODEL_FLASH;
+    }
+
+    if (fallbackModel) {
+      console.log(`Attempting fallback to ${fallbackModel}...`);
+      return await refineCarouselContent(slides, feedback, slideIndex, fallbackModel);
+    }
+
+    throw error;
+  }
+};
+
+// ============================================================================
 // IMAGE GENERATION
 // ============================================================================
 
