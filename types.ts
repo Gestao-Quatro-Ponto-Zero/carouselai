@@ -104,14 +104,33 @@ export interface Slide {
 
 /**
  * Complete carousel project data.
- * Used for saving/loading projects (future feature).
+ * Used for saving/loading projects via JSON export/import.
+ *
+ * Includes all slides, profile info, and global settings so the
+ * entire project can be restored exactly as it was.
  */
 export interface CarouselProject {
-  id: string;
-  style: CarouselStyle;
-  aspectRatio: AspectRatio;
-  profile: Profile;
-  slides: Slide[];
+  id: string;                      // Unique project identifier
+  name: string;                    // User-friendly project name
+  style: CarouselStyle;            // Visual template (Twitter/Storyteller)
+  aspectRatio: AspectRatio;        // Slide dimensions
+  profile: Profile;                // Creator info (name, handle, avatar)
+  slides: Slide[];                 // All slide content and images
+
+  // Global settings
+  theme: Theme;                    // Light/Dark mode
+  accentColor: string;             // Highlight color (hex)
+  showAccent: boolean;             // Whether accent color is enabled
+  showSlideNumbers: boolean;       // Display slide count (e.g., "1 • 7")
+  showVerifiedBadge: boolean;      // Display verified checkmark
+  headerScale: number;             // Header/footer size multiplier (0.5-2.0)
+  fontStyle: FontStyle;            // Global font family
+  fontScale: number;               // Global font size multiplier (0.5-1.5)
+  globalImageStyle: string;        // Image generation style prefix
+
+  // Metadata
+  createdAt: string;               // ISO timestamp of creation
+  updatedAt: string;               // ISO timestamp of last modification
 }
 
 /**

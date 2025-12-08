@@ -18,10 +18,10 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Slide, Profile, CarouselStyle, SlideType, AspectRatio, Theme, FontStyle } from '../types';
+import { Slide, Profile, CarouselStyle, CarouselProject, SlideType, AspectRatio, Theme, FontStyle } from '../types';
 import TwitterSlide from './TwitterSlide';
 import StorytellerSlide from './StorytellerSlide';
-import { generateSlideImage, stylizeImage, editImage, refineCarouselContent, getApiAspectRatio, IMAGE_MODEL_PRO, IMAGE_MODEL_FLASH, setApiKey, getApiKeyMasked, hasApiKey } from '../services/geminiService';
+import { generateSlideImage, stylizeImage, editImage, refineCarouselContent, getApiAspectRatio, IMAGE_MODEL_PRO, IMAGE_MODEL_FLASH, DEFAULT_IMAGE_STYLE, setApiKey, getApiKeyMasked, hasApiKey } from '../services/geminiService';
 
 interface WorkspaceProps {
   slides: Slide[];
@@ -74,6 +74,11 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
   // ============================================================================
   const [fontStyle, setFontStyle] = useState<FontStyle>('MODERN');
   const [fontScale, setFontScale] = useState(1.0); // 0.5 - 1.5
+
+  // ============================================================================
+  // GLOBAL IMAGE STYLE
+  // ============================================================================
+  const [globalImageStyle, setGlobalImageStyle] = useState<string>(DEFAULT_IMAGE_STYLE);
 
   // ============================================================================
   // IMAGE GENERATION SETTINGS
@@ -495,6 +500,92 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
   };
 
   // ============================================================================
+  // PROJECT EXPORT/IMPORT HANDLERS
+  // ============================================================================
+
+  const projectImportRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Exports the current carousel project as a JSON file.
+   * Includes all slides, profile, and global settings.
+   */
+  const handleExportProject = () => {
+    const project: CarouselProject = {
+      id: crypto.randomUUID(),
+      name: `carousel-${new Date().toISOString().split('T')[0]}`,
+      style,
+      aspectRatio,
+      profile,
+      slides,
+      theme,
+      accentColor,
+      showAccent,
+      showSlideNumbers,
+      showVerifiedBadge,
+      headerScale,
+      fontStyle,
+      fontScale,
+      globalImageStyle,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+    window.saveAs(blob, `${project.name}.json`);
+  };
+
+  /**
+   * Imports a carousel project from a JSON file.
+   * Restores all slides and global settings.
+   */
+  const handleImportProject = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) return;
+
+    const file = e.target.files[0];
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      try {
+        const project = JSON.parse(event.target?.result as string) as CarouselProject;
+
+        // Validate required fields
+        if (!project.slides || !Array.isArray(project.slides)) {
+          throw new Error('Invalid project file: missing slides');
+        }
+
+        // Restore slides
+        onUpdateSlides(project.slides);
+
+        // Restore global settings (with fallbacks for older project files)
+        if (project.theme) setTheme(project.theme);
+        if (project.accentColor) setAccentColor(project.accentColor);
+        if (project.showAccent !== undefined) setShowAccent(project.showAccent);
+        if (project.showSlideNumbers !== undefined) setShowSlideNumbers(project.showSlideNumbers);
+        if (project.showVerifiedBadge !== undefined) setShowVerifiedBadge(project.showVerifiedBadge);
+        if (project.headerScale) setHeaderScale(project.headerScale);
+        if (project.fontStyle) setFontStyle(project.fontStyle);
+        if (project.fontScale) setFontScale(project.fontScale);
+        if (project.globalImageStyle) setGlobalImageStyle(project.globalImageStyle);
+
+        // Set active slide to first slide
+        if (project.slides.length > 0) {
+          setActiveSlideId(project.slides[0].id);
+        }
+
+        alert('Project imported successfully!');
+      } catch (error) {
+        console.error('Failed to import project:', error);
+        alert('Failed to import project. Please check the file format.');
+      }
+    };
+
+    reader.readAsText(file);
+
+    // Reset input so same file can be imported again
+    if (e.target) e.target.value = '';
+  };
+
+  // ============================================================================
   // IMAGE GENERATION HANDLERS
   // ============================================================================
 
@@ -516,7 +607,7 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
     setGeneratingSlideIds(prev => new Set(prev).add(slideId));
 
     try {
-      const base64Image = await generateSlideImage(prompt, imageAspectRatio, selectedImageModel);
+      const base64Image = await generateSlideImage(prompt, imageAspectRatio, selectedImageModel, globalImageStyle);
 
       // Use ref to get latest slides (avoids stale closure)
       const currentSlides = slidesRef.current;
@@ -552,6 +643,12 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
     }
   };
 
+  // Capture globalImageStyle at call time to avoid stale closure in batch generation
+  const globalImageStyleRef = useRef(globalImageStyle);
+  useEffect(() => {
+    globalImageStyleRef.current = globalImageStyle;
+  }, [globalImageStyle]);
+
   /**
    * Generates images for multiple slides simultaneously.
    *
@@ -572,6 +669,9 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
 
     setBatchGenerating(true);
 
+    // Capture the current image style at call time to use in all promises
+    const currentImageStyle = globalImageStyleRef.current;
+
     // Initialize all selected slides as "generating" for UI feedback
     const initialStatus: Record<string, 'idle' | 'generating' | 'success' | 'error'> = {};
     selectedSlideIds.forEach(id => {
@@ -589,7 +689,7 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
         `An abstract representation of: ${slide.content.substring(0, 50)}`;
 
       try {
-        const base64Image = await generateSlideImage(prompt, imageAspectRatio, selectedImageModel);
+        const base64Image = await generateSlideImage(prompt, imageAspectRatio, selectedImageModel, currentImageStyle);
         return { slideId, success: true, imageUrl: base64Image };
       } catch (error) {
         console.error(`Failed to generate image for slide ${slideId}:`, error);
@@ -1139,14 +1239,37 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                  </div>
             </div>
             <div className="flex space-x-3">
-                 <button 
+                 {/* Project Import (hidden file input) */}
+                 <input
+                   type="file"
+                   ref={projectImportRef}
+                   className="hidden"
+                   accept=".json"
+                   onChange={handleImportProject}
+                 />
+                 <button
+                   className="px-4 py-2 rounded text-sm font-medium transition-colors border border-gray-600 text-gray-300 hover:bg-gray-700"
+                   onClick={() => projectImportRef.current?.click()}
+                   title="Import project from JSON"
+                 >
+                    Import
+                 </button>
+                 <button
+                   className="px-4 py-2 rounded text-sm font-medium transition-colors border border-gray-600 text-gray-300 hover:bg-gray-700"
+                   onClick={handleExportProject}
+                   title="Export project as JSON"
+                 >
+                    Export
+                 </button>
+                 <div className="w-px bg-gray-600"></div>
+                 <button
                    className={`px-4 py-2 rounded text-sm font-medium transition-colors border border-gray-600 text-gray-300 hover:bg-gray-700 ${isDownloading ? 'opacity-50 cursor-not-allowed' : ''}`}
                    onClick={handleDownloadSlide}
                    disabled={isDownloading}
                  >
                     {isDownloading ? '...' : 'Download Slide'}
                  </button>
-                 <button 
+                 <button
                    className={`px-4 py-2 rounded text-sm font-medium transition-colors bg-blue-600 hover:bg-blue-500 text-white ${isDownloading ? 'opacity-50 cursor-not-allowed' : ''}`}
                    onClick={handleDownloadCarousel}
                    disabled={isDownloading}
@@ -1370,6 +1493,27 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                             onChange={(e) => setFontScale(parseFloat(e.target.value))}
                             className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
                         />
+                    </div>
+
+                    {/* Global Image Style */}
+                    <div className="mb-4 p-3 bg-gray-700 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-300">Image Generation Style</label>
+                            <button
+                                onClick={() => setGlobalImageStyle(DEFAULT_IMAGE_STYLE)}
+                                className="text-xs text-gray-500 hover:text-gray-300"
+                                title="Reset to default"
+                            >
+                                Reset
+                            </button>
+                        </div>
+                        <textarea
+                            value={globalImageStyle}
+                            onChange={(e) => setGlobalImageStyle(e.target.value)}
+                            placeholder="Style prefix for all AI-generated images..."
+                            className="w-full h-16 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white resize-none focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        <p className="text-[10px] text-gray-500 mt-1">Applied to all AI-generated images</p>
                     </div>
 
                     {/* AI Content Refinement (Global) */}

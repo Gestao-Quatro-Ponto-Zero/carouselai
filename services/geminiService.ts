@@ -564,19 +564,29 @@ Return strictly JSON with ONE refined slide.`;
  * This is different from text generation which falls back on ANY error.
  *
  * PROMPT ENHANCEMENT:
- * All prompts are prefixed with "Minimalist, high quality, photorealistic, cinematic lighting."
- * to improve output quality consistently.
+ * All prompts are prefixed with a global style (defaults to "Minimalist, high quality, photorealistic, cinematic lighting.")
+ * The style can be customized by the user in the Workspace settings.
  */
-export const generateSlideImage = async (prompt: string, aspectRatio: AspectRatio, modelName: string = IMAGE_MODEL_PRO): Promise<string> => {
+export const DEFAULT_IMAGE_STYLE = 'Minimalist, high quality, photorealistic, cinematic lighting.';
+
+export const generateSlideImage = async (
+  prompt: string,
+  aspectRatio: AspectRatio,
+  modelName: string = IMAGE_MODEL_PRO,
+  globalStyle: string = DEFAULT_IMAGE_STYLE
+): Promise<string> => {
   const apiAspectRatio = getApiAspectRatio(aspectRatio);
+
+  // Use the provided global style, or fall back to default if empty
+  const stylePrefix = globalStyle.trim() || DEFAULT_IMAGE_STYLE;
 
   const generate = async (m: string) => {
       const isPro = m === IMAGE_MODEL_PRO;
       const response = await ai.models.generateContent({
         model: m,
         contents: {
-          // Enhance all prompts with quality modifiers
-          parts: [{ text: `Minimalist, high quality, photorealistic, cinematic lighting. ${prompt}` }]
+          // Enhance all prompts with the global style prefix
+          parts: [{ text: `${stylePrefix} ${prompt}` }]
         },
         config: {
           imageConfig: {
