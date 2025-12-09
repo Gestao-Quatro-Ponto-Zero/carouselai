@@ -8,7 +8,9 @@ CarouselAI is an Instagram carousel creator that uses Google Gemini AI for conte
 
 - **React 19** with TypeScript
 - **Vite 6** for build/dev server
-- **Tailwind CSS** for styling (via CDN in index.html)
+- **Tailwind CSS 3** for styling with CSS variables (compiled, not CDN)
+- **shadcn/ui** - Component library (Radix UI primitives + Tailwind)
+- **lucide-react** - Icon library
 - **Google Gemini AI** (`@google/genai`) for text and image generation
 - **html-to-image** for PNG export (captures rendered DOM)
 
@@ -25,15 +27,30 @@ npm run preview      # Preview production build
 
 ```
 /
-├── App.tsx                    # Main app, onboarding flow, style selection
+├── App.tsx                    # Main app, onboarding flow, editor theme state
 ├── index.tsx                  # Entry point
-├── index.html                 # HTML template with CDN scripts
+├── index.html                 # HTML template with CDN scripts for export libraries
+├── index.css                  # Tailwind base + CSS variables for theming
+├── tailwind.config.js         # Extended Tailwind config with shadcn colors
 ├── types.ts                   # TypeScript interfaces (Slide, Profile, Theme, etc.)
 ├── constants.ts               # Default slides, prompts
+├── lib/
+│   └── utils.ts               # cn() utility for conditional classes
 ├── components/
 │   ├── Workspace.tsx          # Main editor: sidebar, preview, export logic
 │   ├── TwitterSlide.tsx       # Twitter-style slide template
-│   └── StorytellerSlide.tsx   # Storyteller-style slide template
+│   ├── StorytellerSlide.tsx   # Storyteller-style slide template
+│   └── ui/                    # shadcn/ui components
+│       ├── button.tsx
+│       ├── input.tsx
+│       ├── textarea.tsx
+│       ├── label.tsx
+│       ├── switch.tsx
+│       ├── slider.tsx
+│       ├── select.tsx
+│       ├── card.tsx
+│       ├── toggle.tsx
+│       └── toggle-group.tsx
 └── services/
     └── geminiService.ts       # Gemini AI API integration
 ```
@@ -48,7 +65,10 @@ npm run preview      # Preview production build
 
 - Use functional React components with hooks
 - TypeScript strict mode enabled
-- Tailwind CSS for all styling (no separate CSS files)
+- Tailwind CSS for all styling with CSS variables
+- Use shadcn/ui components for UI (Button, Input, Switch, Slider, Select, etc.)
+- Use `cn()` utility from `lib/utils.ts` for conditional class names
+- Use lucide-react icons instead of inline SVGs where possible
 - Use `const` over `let` when possible
 - Descriptive variable names
 - Keep components focused - extract if over 300 lines
@@ -68,8 +88,12 @@ npm run preview      # Preview production build
 - Supported aspect ratios for images: 1:1, 4:5, 9:16, 16:9
 
 ### Styling
+- **Editor UI Theme**: Light mode (default) or Dark mode, controlled by `editorTheme` state in App.tsx
+  - Applies `dark` class to document root
+  - Uses CSS variables in `index.css` for consistent theming
+  - Primary accent color: `#dc2626` (red-600)
+- **Carousel/Slide Themes**: `DARK` and `LIGHT` themes for the slide output (separate from editor theme)
 - Two carousel styles: `TWITTER` and `STORYTELLER` (convertible via UI)
-- Each style supports `DARK` and `LIGHT` themes
 - Post aspect ratios: `1/1` (square) and `4/5` (portrait)
 
 ### Layout System

@@ -51,9 +51,16 @@ CarouselAI helps content creators, marketers, and social media managers build pr
 | **Twitter Style** | Classic tweet-screenshot aesthetic. Clean, text-focused, authoritative. Perfect for thought leadership content. |
 | **Storyteller** | Image-first with bold typography and cinematic overlays. High visual impact for engaging stories. |
 
+### Modern UI with shadcn/ui
+
+- **shadcn/ui Component Library** - Clean, accessible UI components built on Radix UI primitives
+- **Light & Dark Editor Themes** - Toggle between light and dark mode for the editor interface
+- **CSS Variables** - Consistent theming with HSL color system
+- **Red Accent Color** - Primary accent `#dc2626` for buttons and interactive elements
+
 ### Rich Customization Options
 
-- **Light & Dark Themes** - Match your brand or preference
+- **Light & Dark Slide Themes** - Match your brand or preference for the carousel output
 - **Custom Accent Colors** - Full color picker for brand consistency
 - **Adjustable Header/Footer Size** - Scale from 50% to 200%
 - **Slide Numbers** - Toggle slide count indicator
@@ -160,9 +167,11 @@ CarouselAI helps content creators, marketers, and social media managers build pr
 - **React 19** - UI framework
 - **TypeScript** - Type safety
 - **Vite 6** - Build tool and dev server
-- **Tailwind CSS** - Styling
+- **Tailwind CSS 3** - Utility-first styling with CSS variables
+- **shadcn/ui** - Accessible component library (Radix UI + Tailwind)
 - **Google Gemini AI** - Content and image generation
 - **html-to-image** - PNG export
+- **lucide-react** - Modern icon library
 
 ## Scripts
 

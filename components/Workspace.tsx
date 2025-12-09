@@ -22,6 +22,22 @@ import { Slide, Profile, CarouselStyle, CarouselProject, SlideType, AspectRatio,
 import TwitterSlide from './TwitterSlide';
 import StorytellerSlide from './StorytellerSlide';
 import { generateSlideImage, stylizeImage, editImage, refineCarouselContent, getApiAspectRatio, IMAGE_MODEL_PRO, IMAGE_MODEL_FLASH, DEFAULT_IMAGE_STYLE, setApiKey, getApiKeyMasked, hasApiKey } from '../services/geminiService';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import {
+  Plus, Trash2, Download, ArrowLeft, Zap, Upload, X, Loader2,
+  ChevronDown, ChevronUp, Settings, Image, Type, Palette,
+  CheckSquare, Square, RefreshCw, Sparkles, Pencil, Sun, Moon,
+  FileDown, FolderDown, Save, FolderOpen
+} from 'lucide-react';
+
+type EditorTheme = 'light' | 'dark';
 
 interface WorkspaceProps {
   slides: Slide[];
@@ -31,6 +47,8 @@ interface WorkspaceProps {
   onUpdateSlides: (slides: Slide[]) => void;
   onStyleChange?: (style: CarouselStyle) => void;  // For style conversion
   onBack: () => void;
+  editorTheme?: EditorTheme;
+  onEditorThemeToggle?: () => void;
 }
 
 // External libraries loaded via CDN in index.html
@@ -42,7 +60,7 @@ declare global {
   }
 }
 
-const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRatio, onUpdateSlides, onStyleChange, onBack }) => {
+const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRatio, onUpdateSlides, onStyleChange, onBack, editorTheme = 'light', onEditorThemeToggle }) => {
   // ============================================================================
   // CORE STATE
   // ============================================================================
@@ -1016,16 +1034,16 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
   };
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
 
       {/* AI Image Edit Modal */}
       {showEditImageModal && activeSlide?.imageUrl && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-700">
-            <h3 className="text-lg font-bold text-white mb-4">Edit Image with AI</h3>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-card rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl border border-border">
+            <h3 className="text-lg font-bold text-foreground mb-4">Edit Image with AI</h3>
 
             {/* Current Image Preview */}
-            <div className="w-full max-w-[200px] mx-auto mb-4 rounded-lg overflow-hidden border border-gray-600">
+            <div className="w-full max-w-[200px] mx-auto mb-4 rounded-lg overflow-hidden border border-border">
               <img
                 src={activeSlide.imageUrl}
                 alt="Current"
@@ -1035,55 +1053,53 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
 
             {/* Edit Prompt */}
             <div className="space-y-3">
-              <label className="text-sm text-gray-300 font-medium">
+              <Label className="text-sm text-muted-foreground font-medium">
                 Describe your edit
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 value={editImagePrompt}
                 onChange={(e) => setEditImagePrompt(e.target.value)}
                 placeholder="e.g., 'Make it nighttime', 'Add rain', 'Change the background to a beach'"
-                className="w-full h-24 bg-gray-700 border border-gray-600 rounded-lg p-3 text-white text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full h-24 resize-none"
                 disabled={isEditingImage}
               />
-              <button
+              <Button
                 onClick={handleEditImage}
                 disabled={isEditingImage || !editImagePrompt.trim()}
-                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                className="w-full"
               >
                 {isEditingImage ? (
                   <>
-                    <svg className="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
                     Editing...
                   </>
                 ) : (
                   'Apply Edit'
                 )}
-              </button>
+              </Button>
             </div>
 
             {/* Cancel */}
-            <button
+            <Button
+              variant="ghost"
               onClick={handleCloseEditModal}
               disabled={isEditingImage}
-              className="w-full mt-4 text-gray-400 hover:text-white text-sm transition-colors disabled:opacity-50"
+              className="w-full mt-4 text-muted-foreground hover:text-foreground"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {/* Image Upload Modal */}
       {showUploadModal && pendingUploadImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-700">
-            <h3 className="text-lg font-bold text-white mb-4">Image Options</h3>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-card rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl border border-border">
+            <h3 className="text-lg font-bold text-foreground mb-4">Image Options</h3>
 
             {/* Preview */}
-            <div className="w-full max-w-[200px] mx-auto mb-4 rounded-lg overflow-hidden border border-gray-600">
+            <div className="w-full max-w-[200px] mx-auto mb-4 rounded-lg overflow-hidden border border-border">
               <img
                 src={pendingUploadImage.base64}
                 alt="Preview"
@@ -1091,79 +1107,80 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
               />
             </div>
             {/* Detected ratio info */}
-            <p className="text-center text-gray-400 text-xs mb-4">
+            <p className="text-center text-muted-foreground text-xs mb-4">
               Detected: {pendingUploadImage.width}x{pendingUploadImage.height} ({pendingUploadImage.detectedRatio})
             </p>
 
             {/* Options */}
             <div className="space-y-4">
               {/* Use As-Is Button */}
-              <button
+              <Button
+                variant="secondary"
                 onClick={handleUseImageAsIs}
                 disabled={isStylizing}
-                className="w-full py-3 px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                className="w-full"
               >
                 Use as-is
-              </button>
+              </Button>
 
               {/* Divider */}
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-gray-600"></div>
-                <span className="text-gray-400 text-sm">or</span>
-                <div className="flex-1 h-px bg-gray-600"></div>
+                <div className="flex-1 h-px bg-border"></div>
+                <span className="text-muted-foreground text-sm">or</span>
+                <div className="flex-1 h-px bg-border"></div>
               </div>
 
               {/* Stylize Section */}
               <div className="space-y-3">
-                <label className="text-sm text-gray-300 font-medium">
+                <Label className="text-sm text-muted-foreground font-medium">
                   Stylize with AI (Nano Banana)
-                </label>
-                <textarea
+                </Label>
+                <Textarea
                   value={stylizePrompt}
                   onChange={(e) => setStylizePrompt(e.target.value)}
                   placeholder="e.g., 'Make it look like a watercolor painting' or 'Add neon cyberpunk aesthetic'"
-                  className="w-full h-20 bg-gray-700 border border-gray-600 rounded-lg p-3 text-white text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full h-20 resize-none"
                   disabled={isStylizing}
                 />
-                <button
+                <Button
                   onClick={handleStylizeImage}
                   disabled={isStylizing || !stylizePrompt.trim()}
-                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  className="w-full"
                 >
                   {isStylizing ? (
                     <>
-                      <svg className="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                      <Loader2 className="animate-spin h-5 w-5 mr-2" />
                       Stylizing...
                     </>
                   ) : (
                     'Stylize with AI'
                   )}
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Cancel */}
-            <button
+            <Button
+              variant="ghost"
               onClick={handleCancelUpload}
               disabled={isStylizing}
-              className="w-full mt-4 text-gray-400 hover:text-white text-sm transition-colors disabled:opacity-50"
+              className="w-full mt-4 text-muted-foreground hover:text-foreground"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {/* Sidebar: Slide List */}
-      <div className="w-64 border-r border-gray-700 flex flex-col bg-gray-800 flex-shrink-0 z-20">
-        <div className="p-4 border-b border-gray-700 flex justify-between items-center">
+      <div className="w-64 border-r border-border flex flex-col bg-card flex-shrink-0 z-20">
+        <div className="p-4 border-b border-border flex justify-between items-center">
           <h2 className="font-bold text-lg">Slides</h2>
           <div className="flex items-center gap-2">
             {/* Batch Mode Toggle */}
-            <button
+            <Button
+              variant={batchMode ? "default" : "ghost"}
+              size="icon"
               onClick={() => {
                 setBatchMode(!batchMode);
                 if (batchMode) {
@@ -1172,63 +1189,61 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                 }
               }}
               disabled={batchGenerating}
-              className={`p-1.5 rounded text-sm transition-colors ${
-                batchMode
-                  ? 'bg-blue-600 text-white'
-                  : 'hover:bg-gray-700 text-gray-400'
-              } disabled:opacity-50`}
               title={batchMode ? 'Exit Batch Mode' : 'Batch Generate Images'}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </button>
+              <Image className="h-5 w-5" />
+            </Button>
 
             {/* Add Slide Button */}
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleAddSlide}
-              className="p-1 hover:bg-gray-700 rounded text-blue-400 transition-colors"
+              className="text-primary hover:text-primary"
               title="Add Slide"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-12H4" />
-              </svg>
-            </button>
+              <Plus className="h-6 w-6" />
+            </Button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-2">
           {/* Batch Mode Controls */}
           {batchMode && (
-            <div className="p-2 bg-gray-700 rounded-lg mb-2 space-y-2">
+            <div className="p-2 bg-secondary rounded-lg mb-2 space-y-2">
               <div className="flex items-center justify-between">
-                <button
+                <Button
+                  variant="link"
+                  size="sm"
                   onClick={toggleSelectAll}
-                  className="text-xs text-blue-400 hover:text-blue-300"
+                  className="text-xs text-primary p-0 h-auto"
                 >
                   {selectedSlideIds.size === slides.length ? 'Deselect All' : 'Select All'}
-                </button>
-                <span className="text-xs text-gray-400">
+                </Button>
+                <span className="text-xs text-muted-foreground">
                   {selectedSlideIds.size} selected
                 </span>
               </div>
-              <button
+              <Button
                 onClick={handleBatchGenerateImages}
                 disabled={selectedSlideIds.size === 0 || batchGenerating}
-                className="w-full py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs font-semibold rounded transition-colors"
+                className="w-full text-xs"
+                size="sm"
               >
                 {batchGenerating ? 'Generating...' : `Generate ${selectedSlideIds.size} Images`}
-              </button>
+              </Button>
             </div>
           )}
           {slides.map((slide, idx) => (
             <div
               key={slide.id}
               onClick={() => !batchMode && setActiveSlideId(slide.id)}
-              className={`p-3 rounded-lg cursor-pointer transition-all border ${
+              className={cn(
+                "p-3 rounded-lg cursor-pointer transition-all border",
                 activeSlideId === slide.id && !batchMode
-                  ? 'bg-blue-600 border-blue-400'
-                  : 'bg-gray-700 border-transparent hover:bg-gray-600'
-              } ${batchMode ? 'cursor-default' : ''}`}
+                  ? "bg-primary border-primary text-primary-foreground"
+                  : "bg-secondary border-transparent hover:bg-secondary/80",
+                batchMode && "cursor-default"
+              )}
             >
               <div className="flex justify-between items-center mb-1">
                 <div className="flex items-center gap-2">
@@ -1238,7 +1253,7 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                       type="checkbox"
                       checked={selectedSlideIds.has(slide.id)}
                       onChange={() => toggleSlideSelection(slide.id)}
-                      className="w-4 h-4 rounded border-gray-500 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
                       onClick={(e) => e.stopPropagation()}
                     />
                   )}
@@ -1263,18 +1278,18 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
 
                   {/* Individual generation indicator (non-batch mode) */}
                   {!slideGenerationStatus[slide.id] && generatingSlideIds.has(slide.id) && (
-                    <span className="text-xs text-blue-400 animate-pulse">...</span>
+                    <span className="text-xs text-primary animate-pulse">...</span>
                   )}
 
                   {!batchMode && (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={handleDeleteSlide}
-                      className="text-gray-400 hover:text-red-400 transition-colors"
+                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
+                      <X className="h-4 w-4" />
+                    </Button>
                   )}
                 </div>
               </div>
@@ -1282,51 +1297,61 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
 
               {/* Image indicator */}
               {slide.showImage && (
-                <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+                <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                  <Image className="w-3 h-3" />
                   {slide.imageUrl ? 'Has image' : 'Needs image'}
                 </div>
               )}
             </div>
           ))}
         </div>
-        <div className="p-4 border-t border-gray-700">
-           <button onClick={onBack} className="text-gray-400 hover:text-white text-sm flex items-center">
-             ← Back to Setup
-           </button>
+        <div className="p-4 border-t border-border">
+           <Button variant="ghost" onClick={onBack} className="text-muted-foreground hover:text-foreground text-sm">
+             <ArrowLeft className="h-4 w-4 mr-1" />
+             Back to Setup
+           </Button>
         </div>
       </div>
 
       {/* Main Area: Preview & Tools */}
-      <div className="flex-1 flex flex-col relative bg-gray-900 min-w-0">
-        
+      <div className="flex-1 flex flex-col relative bg-background min-w-0">
+
         {/* Toolbar */}
-        <div className="h-16 border-b border-gray-700 bg-gray-800 px-6 flex items-center justify-between flex-shrink-0 z-20">
+        <div className="h-16 border-b border-border bg-card px-6 flex items-center justify-between flex-shrink-0 z-20">
             <div className="flex items-center gap-6">
                  <div>
                     <h1 className="font-bold text-xl">Workspace</h1>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-muted-foreground">
                         {aspectRatio === '1/1' ? 'Square 1:1' : 'Portrait 4:5'} (1080px)
                     </span>
                  </div>
-                 
+
                  {/* Zoom Control */}
-                 <div className="flex items-center gap-2 bg-gray-700 rounded-lg px-3 py-1.5">
-                    <span className="text-xs text-gray-400 uppercase font-bold">Zoom</span>
-                    <input 
-                        type="range" 
-                        min="0.1" 
-                        max="1.0" 
-                        step="0.05"
-                        value={zoomLevel} 
-                        onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
-                        className="w-24 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                 <div className="flex items-center gap-2 bg-secondary rounded-lg px-3 py-1.5">
+                    <span className="text-xs text-muted-foreground uppercase font-bold">Zoom</span>
+                    <Slider
+                        value={[zoomLevel]}
+                        min={0.1}
+                        max={1.0}
+                        step={0.05}
+                        onValueChange={(value) => setZoomLevel(value[0])}
+                        className="w-24"
                     />
                  </div>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex space-x-3 items-center">
+                 {/* Editor Theme Toggle */}
+                 {onEditorThemeToggle && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={onEditorThemeToggle}
+                        title={editorTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+                    >
+                        {editorTheme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+                    </Button>
+                 )}
+                 <div className="w-px bg-border h-8"></div>
                  {/* Project Import (hidden file input) */}
                  <input
                    type="file"
@@ -1335,48 +1360,51 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                    accept=".json"
                    onChange={handleImportProject}
                  />
-                 <button
-                   className="px-4 py-2 rounded text-sm font-medium transition-colors border border-gray-600 text-gray-300 hover:bg-gray-700"
+                 <Button
+                   variant="outline"
                    onClick={() => projectImportRef.current?.click()}
                    title="Import project from JSON"
                  >
+                    <FolderOpen className="h-4 w-4 mr-2" />
                     Import
-                 </button>
-                 <button
-                   className="px-4 py-2 rounded text-sm font-medium transition-colors border border-gray-600 text-gray-300 hover:bg-gray-700"
+                 </Button>
+                 <Button
+                   variant="outline"
                    onClick={handleExportProject}
                    title="Export project as JSON"
                  >
+                    <Save className="h-4 w-4 mr-2" />
                     Export
-                 </button>
-                 <div className="w-px bg-gray-600"></div>
-                 <button
-                   className={`px-4 py-2 rounded text-sm font-medium transition-colors border border-gray-600 text-gray-300 hover:bg-gray-700 ${isDownloading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                 </Button>
+                 <div className="w-px bg-border h-8"></div>
+                 <Button
+                   variant="outline"
                    onClick={handleDownloadSlide}
                    disabled={isDownloading}
                  >
+                    <FileDown className="h-4 w-4 mr-2" />
                     {isDownloading ? '...' : 'Download Slide'}
-                 </button>
-                 <button
-                   className={`px-4 py-2 rounded text-sm font-medium transition-colors bg-blue-600 hover:bg-blue-500 text-white ${isDownloading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                 </Button>
+                 <Button
                    onClick={handleDownloadCarousel}
                    disabled={isDownloading}
                  >
+                    <FolderDown className="h-4 w-4 mr-2" />
                     {isDownloading ? 'Zipping...' : 'Download Carousel'}
-                 </button>
+                 </Button>
             </div>
         </div>
 
         {/* Content Wrapper */}
         <div className="flex-1 flex overflow-hidden">
-            
+
             {/* Center: Canvas Preview */}
             <div className="flex-1 bg-black flex items-center justify-center overflow-hidden relative">
                 {/* Scrollable Container */}
                 <div className="w-full h-full overflow-auto flex items-center justify-center p-10">
-                    <div 
-                        style={{ 
-                            transform: `scale(${zoomLevel})`, 
+                    <div
+                        style={{
+                            transform: `scale(${zoomLevel})`,
                             transformOrigin: 'center center',
                             transition: 'transform 0.2s ease-out'
                         }}
@@ -1397,115 +1425,125 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
             </div>
 
             {/* Right Panel: Properties */}
-            <div className="w-96 bg-gray-800 border-l border-gray-700 p-6 flex flex-col overflow-y-auto flex-shrink-0 z-20">
+            <div className="w-96 bg-card border-l border-border p-6 flex flex-col overflow-y-auto flex-shrink-0 z-20">
                 
                 {/* Global Settings Section */}
-                <div className="mb-6 border-b border-gray-700 pb-6">
-                    <h3 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-4">Global Settings</h3>
+                <div className="mb-6 border-b border-border pb-6">
+                    <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-4">Global Settings</h3>
 
                     {/* Style Conversion */}
                     {onStyleChange && (
-                        <div className="mb-4 p-3 bg-gray-700 rounded-lg">
+                        <div className="mb-4 p-3 bg-secondary rounded-lg">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <span className="text-sm font-medium text-gray-300 block">Current Style</span>
-                                    <span className="text-xs text-gray-500">
+                                    <span className="text-sm font-medium text-foreground block">Current Style</span>
+                                    <span className="text-xs text-muted-foreground">
                                         {style === CarouselStyle.TWITTER ? 'Twitter' : 'Storyteller'}
                                     </span>
                                 </div>
-                                <button
+                                <Button
                                     onClick={handleConvertStyle}
-                                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium rounded transition-colors"
+                                    size="sm"
+                                    variant="secondary"
+                                    className="bg-purple-600 hover:bg-purple-500 text-white"
                                 >
                                     Convert to {style === CarouselStyle.TWITTER ? 'Storyteller' : 'Twitter'}
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     )}
 
                     {/* API Key Management */}
-                    <div className="mb-4 p-3 bg-gray-700 rounded-lg">
+                    <div className="mb-4 p-3 bg-secondary rounded-lg">
                       <div className="flex items-center justify-between mb-2">
-                        <label className="text-sm font-medium text-gray-300">Gemini API Key</label>
-                        <button
+                        <Label className="text-sm font-medium">Gemini API Key</Label>
+                        <Button
+                          variant="link"
+                          size="sm"
                           onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-                          className="text-xs text-blue-400 hover:text-blue-300"
+                          className="text-xs text-primary p-0 h-auto"
                         >
                           {showApiKeyInput ? 'Cancel' : 'Change'}
-                        </button>
+                        </Button>
                       </div>
                       {!showApiKeyInput ? (
-                        <div className="text-xs text-gray-400 font-mono">
+                        <div className="text-xs text-muted-foreground font-mono">
                           {apiKeyDisplay || 'Not set'}
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <input
+                          <Input
                             type="password"
                             value={apiKeyInput}
                             onChange={(e) => setApiKeyInput(e.target.value)}
                             placeholder="Enter your Gemini API key"
-                            className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500"
                           />
-                          <button
+                          <Button
                             onClick={handleSaveApiKey}
                             disabled={!apiKeyInput.trim()}
-                            className="w-full py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs font-semibold rounded transition-colors"
+                            className="w-full"
+                            size="sm"
                           >
                             Save API Key
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
 
                     {/* Dark/Light Mode Toggle */}
                     <div className="flex items-center justify-between mb-4">
-                        <label className="text-sm font-medium text-gray-300">Theme</label>
-                        <div className="flex bg-gray-700 rounded-lg p-1">
-                            <button
+                        <Label className="text-sm font-medium">Theme</Label>
+                        <div className="flex bg-secondary rounded-lg p-1">
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setTheme('LIGHT')}
-                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${theme === 'LIGHT' ? 'bg-white text-gray-900 shadow' : 'text-gray-400 hover:text-white'}`}
+                                className={cn(
+                                    "px-3 py-1 text-xs font-bold",
+                                    theme === 'LIGHT' ? 'bg-white text-black shadow' : 'text-muted-foreground hover:text-foreground'
+                                )}
                             >
+                                <Sun className="h-3 w-3 mr-1" />
                                 Light
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setTheme('DARK')}
-                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${theme === 'DARK' ? 'bg-black text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                                className={cn(
+                                    "px-3 py-1 text-xs font-bold",
+                                    theme === 'DARK' ? 'bg-black text-white shadow' : 'text-muted-foreground hover:text-foreground'
+                                )}
                             >
+                                <Moon className="h-3 w-3 mr-1" />
                                 Dark
-                            </button>
+                            </Button>
                         </div>
                     </div>
 
                      {/* Accent Color Toggle & Picker */}
                     <div className="flex items-center justify-between mb-2">
-                        <label className="text-sm font-medium text-gray-300">Use Accent Color</label>
-                        <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
-                            <input 
-                                type="checkbox" 
-                                checked={showAccent}
-                                onChange={(e) => setShowAccent(e.target.checked)}
-                                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 right-5"
-                                style={{ right: showAccent ? '0' : 'auto', left: showAccent ? 'auto' : '0' }} 
-                            />
-                            <label className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${showAccent ? 'bg-blue-600' : 'bg-gray-600'}`}></label>
-                        </div>
+                        <Label className="text-sm font-medium">Use Accent Color</Label>
+                        <Switch
+                            checked={showAccent}
+                            onCheckedChange={setShowAccent}
+                        />
                     </div>
 
                     {showAccent && (
-                        <div className="flex items-center gap-3 mb-4 bg-gray-700 p-2 rounded-lg border border-gray-600">
-                            <input 
-                                type="color" 
+                        <div className="flex items-center gap-3 mb-4 bg-secondary p-2 rounded-lg border border-border">
+                            <input
+                                type="color"
                                 value={accentColor}
                                 onChange={(e) => setAccentColor(e.target.value)}
                                 className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
                                 title="Pick a color"
                             />
-                            <input 
-                                type="text" 
+                            <Input
+                                type="text"
                                 value={accentColor}
                                 onChange={(e) => setAccentColor(e.target.value)}
-                                className="flex-1 bg-transparent text-sm text-white font-mono outline-none uppercase"
+                                className="flex-1 font-mono uppercase"
                                 maxLength={7}
                                 placeholder="#RRGGBB"
                             />
@@ -1514,166 +1552,168 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
 
                     {/* Slide Numbers Toggle */}
                     <div className="flex items-center justify-between mb-4">
-                        <label className="text-sm font-medium text-gray-300">Slide Numbers</label>
-                        <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
-                            <input 
-                                type="checkbox" 
-                                checked={showSlideNumbers}
-                                onChange={(e) => setShowSlideNumbers(e.target.checked)}
-                                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 right-5"
-                                style={{ right: showSlideNumbers ? '0' : 'auto', left: showSlideNumbers ? 'auto' : '0' }} 
-                            />
-                            <label className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${showSlideNumbers ? 'bg-blue-600' : 'bg-gray-600'}`}></label>
-                        </div>
+                        <Label className="text-sm font-medium">Slide Numbers</Label>
+                        <Switch
+                            checked={showSlideNumbers}
+                            onCheckedChange={setShowSlideNumbers}
+                        />
                     </div>
 
                     {/* Verified Badge Toggle */}
                     <div className="flex items-center justify-between mb-4">
-                        <label className="text-sm font-medium text-gray-300">Verified Badge</label>
-                        <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
-                            <input 
-                                type="checkbox" 
-                                checked={showVerifiedBadge}
-                                onChange={(e) => setShowVerifiedBadge(e.target.checked)}
-                                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 right-5"
-                                style={{ right: showVerifiedBadge ? '0' : 'auto', left: showVerifiedBadge ? 'auto' : '0' }} 
-                            />
-                            <label className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${showVerifiedBadge ? 'bg-blue-600' : 'bg-gray-600'}`}></label>
-                        </div>
+                        <Label className="text-sm font-medium">Verified Badge</Label>
+                        <Switch
+                            checked={showVerifiedBadge}
+                            onCheckedChange={setShowVerifiedBadge}
+                        />
                     </div>
 
                     {/* Header Scale Slider */}
                     <div className="mb-4">
-                        <div className="flex justify-between text-xs text-gray-400 mb-1">
+                        <div className="flex justify-between text-xs text-muted-foreground mb-2">
                             <span>Header/Footer Size</span>
                             <span>{Math.round(headerScale * 100)}%</span>
                         </div>
-                        <input
-                            type="range"
-                            min="0.5"
-                            max="2.0"
-                            step="0.1"
-                            value={headerScale}
-                            onChange={(e) => setHeaderScale(parseFloat(e.target.value))}
-                            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        <Slider
+                            value={[headerScale]}
+                            min={0.5}
+                            max={2.0}
+                            step={0.1}
+                            onValueChange={(value) => setHeaderScale(value[0])}
                         />
                     </div>
 
                     {/* Font Style Selector */}
                     <div className="mb-4">
-                        <label className="text-sm font-medium text-gray-300 mb-2 block">Font Style</label>
-                        <div className="flex bg-gray-700 rounded-lg p-1">
-                            <button
+                        <Label className="text-sm font-medium mb-2 block">Font Style</Label>
+                        <div className="flex bg-secondary rounded-lg p-1">
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setFontStyle('MODERN')}
-                                className={`flex-1 px-2 py-1.5 rounded-md text-xs font-bold transition-all ${fontStyle === 'MODERN' ? 'bg-blue-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                                className={cn(
+                                    "flex-1 px-2 py-1.5 text-xs font-bold",
+                                    fontStyle === 'MODERN' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'
+                                )}
                             >
                                 Modern
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setFontStyle('SERIF')}
-                                className={`flex-1 px-2 py-1.5 rounded-md text-xs font-bold transition-all ${fontStyle === 'SERIF' ? 'bg-blue-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                                className={cn(
+                                    "flex-1 px-2 py-1.5 text-xs font-bold",
+                                    fontStyle === 'SERIF' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'
+                                )}
                                 style={{ fontFamily: '"Playfair Display", serif' }}
                             >
                                 Serif
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setFontStyle('TECH')}
-                                className={`flex-1 px-2 py-1.5 rounded-md text-xs font-bold transition-all ${fontStyle === 'TECH' ? 'bg-blue-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                                className={cn(
+                                    "flex-1 px-2 py-1.5 text-xs font-bold",
+                                    fontStyle === 'TECH' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground'
+                                )}
                                 style={{ fontFamily: '"JetBrains Mono", monospace' }}
                             >
                                 Tech
-                            </button>
+                            </Button>
                         </div>
                     </div>
 
                     {/* Font Size Slider */}
                     <div className="mb-4">
-                        <div className="flex justify-between text-xs text-gray-400 mb-1">
+                        <div className="flex justify-between text-xs text-muted-foreground mb-2">
                             <span>Font Size</span>
                             <span>{Math.round(fontScale * 100)}%</span>
                         </div>
-                        <input
-                            type="range"
-                            min="0.5"
-                            max="1.5"
-                            step="0.05"
-                            value={fontScale}
-                            onChange={(e) => setFontScale(parseFloat(e.target.value))}
-                            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        <Slider
+                            value={[fontScale]}
+                            min={0.5}
+                            max={1.5}
+                            step={0.05}
+                            onValueChange={(value) => setFontScale(value[0])}
                         />
                     </div>
 
                     {/* Global Image Style */}
-                    <div className="mb-4 p-3 bg-gray-700 rounded-lg">
+                    <div className="mb-4 p-3 bg-secondary rounded-lg">
                         <div className="flex items-center justify-between mb-2">
-                            <label className="text-sm font-medium text-gray-300">Image Generation Style</label>
-                            <button
+                            <Label className="text-sm font-medium">Image Generation Style</Label>
+                            <Button
+                                variant="link"
+                                size="sm"
                                 onClick={() => setGlobalImageStyle(DEFAULT_IMAGE_STYLE)}
-                                className="text-xs text-gray-500 hover:text-gray-300"
+                                className="text-xs text-muted-foreground hover:text-foreground p-0 h-auto"
                                 title="Reset to default"
                             >
                                 Reset
-                            </button>
+                            </Button>
                         </div>
-                        <textarea
+                        <Textarea
                             value={globalImageStyle}
                             onChange={(e) => setGlobalImageStyle(e.target.value)}
                             placeholder="Style prefix for all AI-generated images..."
-                            className="w-full h-16 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white resize-none focus:ring-1 focus:ring-blue-500 outline-none"
+                            className="w-full h-16 text-xs resize-none"
                         />
-                        <p className="text-[10px] text-gray-500 mt-1">Applied to all AI-generated images</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Applied to all AI-generated images</p>
                     </div>
 
                     {/* AI Content Refinement (Global) */}
-                    <div className="p-3 bg-gray-700 rounded-lg">
-                        <label className="text-sm font-medium text-gray-300 mb-2 block">
+                    <div className="p-3 bg-secondary rounded-lg">
+                        <Label className="text-sm font-medium mb-2 block">
                             Refine All Slides with AI
-                        </label>
-                        <textarea
+                        </Label>
+                        <Textarea
                             value={globalFeedback}
                             onChange={(e) => setGlobalFeedback(e.target.value)}
                             placeholder="E.g., 'Translate to Spanish', 'Make more technical', 'Make it more fun'"
-                            className="w-full h-16 bg-gray-800 border border-gray-600 rounded p-2 text-sm text-white resize-none focus:ring-1 focus:ring-blue-500 outline-none mb-2"
+                            className="w-full h-16 resize-none mb-2"
                             disabled={isRefining}
                         />
-                        <button
+                        <Button
                             onClick={handleGlobalRefine}
                             disabled={!globalFeedback.trim() || isRefining}
-                            className="w-full py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs font-semibold rounded transition-colors flex items-center justify-center"
+                            className="w-full bg-purple-600 hover:bg-purple-500"
+                            size="sm"
                         >
                             {isRefining ? (
                                 <>
-                                    <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
+                                    <Loader2 className="animate-spin h-4 w-4 mr-2" />
                                     Refining...
                                 </>
                             ) : (
-                                'Refine All Slides'
+                                <>
+                                    <Sparkles className="h-4 w-4 mr-2" />
+                                    Refine All Slides
+                                </>
                             )}
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
-                <h3 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-2">Edit Slide</h3>
-                
+                <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">Edit Slide</h3>
+
                 {/* Rich Text Toolbar */}
-                <div className="flex space-x-1 mb-2 bg-gray-700 p-1 rounded-md">
-                    <button onClick={() => insertMarkdown('**', '**')} className="p-1.5 hover:bg-gray-600 rounded text-gray-300 font-bold text-xs" title="Bold">B</button>
-                    <button onClick={() => insertMarkdown('*', '*')} className="p-1.5 hover:bg-gray-600 rounded text-gray-300 italic text-xs" title="Italic">I</button>
-                    <button onClick={() => insertMarkdown('__', '__')} className="p-1.5 hover:bg-gray-600 rounded text-gray-300 underline text-xs" title="Underline">U</button>
-                    <button onClick={() => insertMarkdown('~~', '~~')} className="p-1.5 hover:bg-gray-600 rounded text-gray-300 line-through text-xs" title="Strike">S</button>
-                    <div className="w-px bg-gray-600 mx-1"></div>
-                    <button onClick={() => insertMarkdown('# ')} className="p-1.5 hover:bg-gray-600 rounded text-gray-300 font-bold text-xs" title="Heading 1">H1</button>
-                    <button onClick={() => insertMarkdown('## ')} className="p-1.5 hover:bg-gray-600 rounded text-gray-300 font-bold text-xs" title="Heading 2">H2</button>
-                    <div className="w-px bg-gray-600 mx-1"></div>
-                    <button onClick={() => insertMarkdown('- ')} className="p-1.5 hover:bg-gray-600 rounded text-gray-300 text-xs" title="Bullet List">• List</button>
+                <div className="flex space-x-1 mb-2 bg-secondary p-1 rounded-md">
+                    <Button variant="ghost" size="sm" onClick={() => insertMarkdown('**', '**')} className="p-1.5 text-muted-foreground hover:text-foreground font-bold text-xs" title="Bold">B</Button>
+                    <Button variant="ghost" size="sm" onClick={() => insertMarkdown('*', '*')} className="p-1.5 text-muted-foreground hover:text-foreground italic text-xs" title="Italic">I</Button>
+                    <Button variant="ghost" size="sm" onClick={() => insertMarkdown('__', '__')} className="p-1.5 text-muted-foreground hover:text-foreground underline text-xs" title="Underline">U</Button>
+                    <Button variant="ghost" size="sm" onClick={() => insertMarkdown('~~', '~~')} className="p-1.5 text-muted-foreground hover:text-foreground line-through text-xs" title="Strike">S</Button>
+                    <div className="w-px bg-border mx-1"></div>
+                    <Button variant="ghost" size="sm" onClick={() => insertMarkdown('# ')} className="p-1.5 text-muted-foreground hover:text-foreground font-bold text-xs" title="Heading 1">H1</Button>
+                    <Button variant="ghost" size="sm" onClick={() => insertMarkdown('## ')} className="p-1.5 text-muted-foreground hover:text-foreground font-bold text-xs" title="Heading 2">H2</Button>
+                    <div className="w-px bg-border mx-1"></div>
+                    <Button variant="ghost" size="sm" onClick={() => insertMarkdown('- ')} className="p-1.5 text-muted-foreground hover:text-foreground text-xs" title="Bullet List">• List</Button>
                 </div>
 
-                <textarea
+                <Textarea
                     ref={textAreaRef}
-                    className="w-full min-h-[8rem] bg-gray-700 border border-gray-600 rounded p-3 text-white text-sm mb-3 focus:ring-2 focus:ring-blue-500 outline-none resize-y font-mono"
+                    className="w-full min-h-[8rem] mb-3 resize-y font-mono"
                     value={activeSlide.content}
                     onChange={(e) => handleTextChange(e.target.value)}
                     placeholder="Enter text (Markdown supported)..."
@@ -1681,12 +1721,12 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
 
                 {/* Per-Slide AI Refinement */}
                 <div className="mb-4 flex gap-2">
-                    <input
+                    <Input
                         type="text"
                         value={slideFeedback}
                         onChange={(e) => setSlideFeedback(e.target.value)}
                         placeholder="Refine this slide... (e.g., 'make it shorter')"
-                        className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-purple-500"
+                        className="flex-1"
                         disabled={isRefining}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
@@ -1695,30 +1735,28 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                             }
                         }}
                     />
-                    <button
+                    <Button
                         onClick={handleSlideRefine}
                         disabled={!slideFeedback.trim() || isRefining}
-                        className="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-xs font-semibold rounded transition-colors flex items-center"
+                        size="icon"
+                        className="bg-purple-600 hover:bg-purple-500"
                         title="Refine this slide"
                     >
                         {isRefining ? (
-                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
+                            <Loader2 className="animate-spin h-4 w-4" />
                         ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
+                            <Zap className="h-4 w-4" />
                         )}
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Per-Slide Font Override */}
-                <div className="mb-4 p-3 bg-gray-750 rounded-lg border border-gray-700">
+                <div className="mb-4 p-3 bg-secondary/50 rounded-lg border border-border">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-gray-400">Slide Font Override</span>
-                        <button
+                        <span className="text-xs text-muted-foreground">Slide Font Override</span>
+                        <Button
+                            variant="link"
+                            size="sm"
                             onClick={() => {
                                 const newSlides = [...slides];
                                 newSlides[activeIndex] = {
@@ -1728,77 +1766,95 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                                 };
                                 onUpdateSlides(newSlides);
                             }}
-                            className="text-xs text-gray-500 hover:text-gray-300"
+                            className="text-xs text-muted-foreground hover:text-foreground p-0 h-auto"
                             title="Reset to global settings"
                         >
                             Reset
-                        </button>
+                        </Button>
                     </div>
 
                     {/* Per-Slide Font Style */}
-                    <div className="flex bg-gray-700 rounded-lg p-1 mb-2">
-                        <button
+                    <div className="flex bg-secondary rounded-lg p-1 mb-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                                 const newSlides = [...slides];
                                 newSlides[activeIndex] = { ...activeSlide, fontStyle: undefined };
                                 onUpdateSlides(newSlides);
                             }}
-                            className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all ${!activeSlide.fontStyle ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-white'}`}
+                            className={cn(
+                                "flex-1 px-1 py-1 text-[10px] font-bold",
+                                !activeSlide.fontStyle ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+                            )}
                         >
                             Global
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                                 const newSlides = [...slides];
                                 newSlides[activeIndex] = { ...activeSlide, fontStyle: 'MODERN' };
                                 onUpdateSlides(newSlides);
                             }}
-                            className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all ${activeSlide.fontStyle === 'MODERN' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-white'}`}
+                            className={cn(
+                                "flex-1 px-1 py-1 text-[10px] font-bold",
+                                activeSlide.fontStyle === 'MODERN' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                            )}
                         >
                             Modern
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                                 const newSlides = [...slides];
                                 newSlides[activeIndex] = { ...activeSlide, fontStyle: 'SERIF' };
                                 onUpdateSlides(newSlides);
                             }}
-                            className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all ${activeSlide.fontStyle === 'SERIF' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-white'}`}
+                            className={cn(
+                                "flex-1 px-1 py-1 text-[10px] font-bold",
+                                activeSlide.fontStyle === 'SERIF' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                            )}
                             style={{ fontFamily: '"Playfair Display", serif' }}
                         >
                             Serif
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                                 const newSlides = [...slides];
                                 newSlides[activeIndex] = { ...activeSlide, fontStyle: 'TECH' };
                                 onUpdateSlides(newSlides);
                             }}
-                            className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all ${activeSlide.fontStyle === 'TECH' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-white'}`}
+                            className={cn(
+                                "flex-1 px-1 py-1 text-[10px] font-bold",
+                                activeSlide.fontStyle === 'TECH' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                            )}
                             style={{ fontFamily: '"JetBrains Mono", monospace' }}
                         >
                             Tech
-                        </button>
+                        </Button>
                     </div>
 
                     {/* Per-Slide Font Size */}
                     <div>
-                        <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                        <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                             <span>Size</span>
                             <span>{activeSlide.fontScale !== undefined ? `${Math.round(activeSlide.fontScale * 100)}%` : 'Global'}</span>
                         </div>
-                        <input
-                            type="range"
-                            min="0.5"
-                            max="1.5"
-                            step="0.05"
-                            value={activeSlide.fontScale !== undefined ? activeSlide.fontScale : fontScale}
-                            onChange={(e) => {
+                        <Slider
+                            value={[activeSlide.fontScale !== undefined ? activeSlide.fontScale : fontScale]}
+                            min={0.5}
+                            max={1.5}
+                            step={0.05}
+                            onValueChange={(value) => {
                                 const newSlides = [...slides];
-                                newSlides[activeIndex] = { ...activeSlide, fontScale: parseFloat(e.target.value) };
+                                newSlides[activeIndex] = { ...activeSlide, fontScale: value[0] };
                                 onUpdateSlides(newSlides);
                             }}
-                            className="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
                         />
                     </div>
                 </div>
@@ -1807,23 +1863,17 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                     BACKGROUND IMAGE SECTION
                     Full-bleed background with color overlay - separate from illustration
                     ================================================================ */}
-                <div className="mb-4 p-3 bg-gray-750 rounded-lg border border-gray-700">
+                <div className="mb-4 p-3 bg-secondary/50 rounded-lg border border-border">
                     <div className="flex items-center justify-between mb-3">
                         <span className="font-semibold text-sm">Background Image</span>
-                        <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                            <input
-                                type="checkbox"
-                                checked={activeSlide.showBackgroundImage || false}
-                                onChange={(e) => {
-                                    const newSlides = [...slides];
-                                    newSlides[activeIndex] = { ...activeSlide, showBackgroundImage: e.target.checked };
-                                    onUpdateSlides(newSlides);
-                                }}
-                                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 right-5"
-                                style={{ right: activeSlide.showBackgroundImage ? '0' : 'auto', left: activeSlide.showBackgroundImage ? 'auto' : '0' }}
-                            />
-                            <label className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${activeSlide.showBackgroundImage ? 'bg-purple-600' : 'bg-gray-600'}`}></label>
-                        </div>
+                        <Switch
+                            checked={activeSlide.showBackgroundImage || false}
+                            onCheckedChange={(checked) => {
+                                const newSlides = [...slides];
+                                newSlides[activeIndex] = { ...activeSlide, showBackgroundImage: checked };
+                                onUpdateSlides(newSlides);
+                            }}
+                        />
                     </div>
 
                     {activeSlide.showBackgroundImage && (
@@ -1831,42 +1881,44 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                             {/* Background Prompt Input */}
                             {!activeSlide.backgroundImageUrl && (
                                 <div>
-                                    <input
+                                    <Input
                                         type="text"
                                         value={backgroundPrompt}
                                         onChange={(e) => setBackgroundPrompt(e.target.value)}
                                         placeholder="Describe background (or leave empty for auto)"
-                                        className="w-full bg-gray-700 text-gray-200 text-xs px-3 py-2 rounded border border-gray-600 focus:border-purple-500 focus:outline-none placeholder-gray-500"
+                                        className="text-xs"
                                     />
                                 </div>
                             )}
 
                             {/* Background Image Preview / Upload */}
                             {activeSlide.backgroundImageUrl ? (
-                                <div className="relative aspect-video rounded-md overflow-hidden border border-gray-600">
+                                <div className="relative aspect-video rounded-md overflow-hidden border border-border">
                                     <img src={activeSlide.backgroundImageUrl} alt="Background" className="w-full h-full object-cover" />
-                                    <button
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
                                         onClick={() => {
                                             const newSlides = [...slides];
                                             newSlides[activeIndex] = { ...activeSlide, backgroundImageUrl: undefined };
                                             onUpdateSlides(newSlides);
                                         }}
-                                        className="absolute top-1 right-1 bg-black bg-opacity-50 hover:bg-red-500 text-white p-1 rounded-full transition-colors"
+                                        className="absolute top-1 right-1 bg-black/50 hover:bg-destructive text-white h-6 w-6"
                                         title="Remove background"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
+                                        <X className="h-4 w-4" />
+                                    </Button>
                                 </div>
                             ) : (
                                 <div className="flex gap-2">
                                     {/* Upload Button */}
-                                    <label className="flex-1 flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-300 py-2 px-3 rounded cursor-pointer text-xs transition-colors">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                        </svg>
-                                        Upload
+                                    <label className="flex-1">
+                                        <Button variant="secondary" className="w-full text-xs" asChild>
+                                            <span className="flex items-center justify-center gap-2 cursor-pointer">
+                                                <Upload className="h-4 w-4" />
+                                                Upload
+                                            </span>
+                                        </Button>
                                         <input
                                             type="file"
                                             className="hidden"
@@ -1890,34 +1942,29 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                                         />
                                     </label>
                                     {/* AI Generate Button */}
-                                    <button
+                                    <Button
                                         onClick={handleGenerateBackgroundImage}
                                         disabled={generatingBackgroundIds.has(activeSlide.id)}
-                                        className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 disabled:cursor-not-allowed text-white py-2 px-3 rounded text-xs transition-colors"
+                                        className="flex-1 bg-purple-600 hover:bg-purple-500 text-xs"
                                     >
                                         {generatingBackgroundIds.has(activeSlide.id) ? (
                                             <>
-                                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                </svg>
+                                                <Loader2 className="animate-spin h-4 w-4 mr-2" />
                                                 Generating...
                                             </>
                                         ) : (
                                             <>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                                </svg>
+                                                <Zap className="h-4 w-4 mr-2" />
                                                 AI Generate
                                             </>
                                         )}
-                                    </button>
+                                    </Button>
                                 </div>
                             )}
 
                             {/* Overlay Color Picker */}
                             <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-400">Overlay Color</span>
+                                <span className="text-xs text-muted-foreground">Overlay Color</span>
                                 <div className="flex items-center gap-2">
                                     <input
                                         type="color"
@@ -1927,38 +1974,39 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                                             newSlides[activeIndex] = { ...activeSlide, backgroundOverlayColor: e.target.value };
                                             onUpdateSlides(newSlides);
                                         }}
-                                        className="w-8 h-8 rounded cursor-pointer border border-gray-600"
+                                        className="w-8 h-8 rounded cursor-pointer border border-border"
                                     />
-                                    <button
+                                    <Button
+                                        variant="link"
+                                        size="sm"
                                         onClick={() => {
                                             const newSlides = [...slides];
                                             newSlides[activeIndex] = { ...activeSlide, backgroundOverlayColor: undefined };
                                             onUpdateSlides(newSlides);
                                         }}
-                                        className="text-[10px] text-gray-500 hover:text-gray-300"
+                                        className="text-[10px] text-muted-foreground hover:text-foreground p-0 h-auto"
                                     >
                                         Reset
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
 
                             {/* Overlay Opacity Slider */}
                             <div>
-                                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                <div className="flex justify-between text-xs text-muted-foreground mb-1">
                                     <span>Overlay Opacity</span>
                                     <span>{activeSlide.backgroundOverlayOpacity !== undefined ? activeSlide.backgroundOverlayOpacity : 50}%</span>
                                 </div>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={activeSlide.backgroundOverlayOpacity !== undefined ? activeSlide.backgroundOverlayOpacity : 50}
-                                    onChange={(e) => {
+                                <Slider
+                                    value={[activeSlide.backgroundOverlayOpacity !== undefined ? activeSlide.backgroundOverlayOpacity : 50]}
+                                    min={0}
+                                    max={100}
+                                    step={1}
+                                    onValueChange={(value) => {
                                         const newSlides = [...slides];
-                                        newSlides[activeIndex] = { ...activeSlide, backgroundOverlayOpacity: parseInt(e.target.value) };
+                                        newSlides[activeIndex] = { ...activeSlide, backgroundOverlayOpacity: value[0] };
                                         onUpdateSlides(newSlides);
                                     }}
-                                    className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-purple-500"
                                 />
                             </div>
                         </div>
@@ -1968,228 +2016,223 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                 {/* Image Toggle (Illustration Image) */}
                 <div className="flex items-center justify-between mb-4">
                      <span className="font-semibold text-sm">Illustration Image</span>
-                     <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                        <input
-                            type="checkbox"
-                            checked={activeSlide.showImage}
-                            onChange={(e) => handleToggleImage(e.target.checked)}
-                            className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 right-5"
-                            style={{ right: activeSlide.showImage ? '0' : 'auto', left: activeSlide.showImage ? 'auto' : '0' }}
-                        />
-                        <label className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${activeSlide.showImage ? 'bg-blue-600' : 'bg-gray-600'}`}></label>
-                    </div>
+                     <Switch
+                        checked={activeSlide.showImage}
+                        onCheckedChange={(checked) => handleToggleImage(checked)}
+                     />
                 </div>
 
                 {activeSlide.showImage && (
-                    <div className="bg-gray-750 rounded-lg p-3 border border-gray-700 animate-fade-in mb-4">
-                        
+                    <div className="bg-secondary/50 rounded-lg p-3 border border-border animate-fade-in mb-4">
+
                         {/* Overlay Toggle (Storyteller Only) */}
                         {style === CarouselStyle.STORYTELLER && (
-                            <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-700">
-                                <span className="text-xs text-gray-400">Top Fade / Overlay</span>
-                                <div className="relative inline-block w-8 mr-1 align-middle select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={activeSlide.overlayImage !== false}
-                                        onChange={(e) => handleToggleOverlay(e.target.checked)}
-                                        className="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-2 appearance-none cursor-pointer checked:right-0 right-4"
-                                        style={{ right: activeSlide.overlayImage !== false ? '0' : 'auto', left: activeSlide.overlayImage !== false ? 'auto' : '0' }}
-                                    />
-                                    <label className={`toggle-label block overflow-hidden h-4 rounded-full cursor-pointer ${activeSlide.overlayImage !== false ? 'bg-purple-600' : 'bg-gray-600'}`}></label>
-                                </div>
+                            <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+                                <span className="text-xs text-muted-foreground">Top Fade / Overlay</span>
+                                <Switch
+                                    checked={activeSlide.overlayImage !== false}
+                                    onCheckedChange={(checked) => handleToggleOverlay(checked)}
+                                />
                             </div>
                         )}
 
                         {/* Content Layout (Twitter Only) */}
                         {style === CarouselStyle.TWITTER && (
-                            <div className="mb-4 pb-4 border-b border-gray-700">
-                                <span className="text-xs text-gray-400 block mb-2">Image Position</span>
+                            <div className="mb-4 pb-4 border-b border-border">
+                                <span className="text-xs text-muted-foreground block mb-2">Image Position</span>
                                 <div className="flex gap-1">
-                                    <button
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
                                         onClick={() => {
                                             const newSlides = [...slides];
                                             newSlides[activeIndex] = { ...activeSlide, contentLayout: 'default' };
                                             onUpdateSlides(newSlides);
                                         }}
-                                        className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
+                                        className={cn(
+                                            "flex-1 px-2 py-1.5 text-[10px] font-medium",
                                             (!activeSlide.contentLayout || activeSlide.contentLayout === 'default')
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                        }`}
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-secondary text-muted-foreground hover:text-foreground'
+                                        )}
                                     >
                                         Below
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
                                         onClick={() => {
                                             const newSlides = [...slides];
                                             newSlides[activeIndex] = { ...activeSlide, contentLayout: 'image-after-title' };
                                             onUpdateSlides(newSlides);
                                         }}
-                                        className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
+                                        className={cn(
+                                            "flex-1 px-2 py-1.5 text-[10px] font-medium",
                                             activeSlide.contentLayout === 'image-after-title'
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                        }`}
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-secondary text-muted-foreground hover:text-foreground'
+                                        )}
                                     >
                                         After Title
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
                                         onClick={() => {
                                             const newSlides = [...slides];
                                             newSlides[activeIndex] = { ...activeSlide, contentLayout: 'image-first' };
                                             onUpdateSlides(newSlides);
                                         }}
-                                        className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded transition-colors ${
+                                        className={cn(
+                                            "flex-1 px-2 py-1.5 text-[10px] font-medium",
                                             activeSlide.contentLayout === 'image-first'
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                        }`}
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-secondary text-muted-foreground hover:text-foreground'
+                                        )}
                                     >
                                         Top
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         )}
 
                         {/* Image Preview / Actions */}
                         {activeSlide.imageUrl ? (
-                             <div className="relative aspect-square rounded-md overflow-hidden mb-3 border border-gray-600">
+                             <div className="relative aspect-square rounded-md overflow-hidden mb-3 border border-border">
                                 <img src={activeSlide.imageUrl} alt="Thumbnail" className="w-full h-full object-cover" />
                                 {/* Action buttons container */}
                                 <div className="absolute top-1 right-1 flex gap-1">
                                     {/* Edit with AI button */}
-                                    <button
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
                                         onClick={handleOpenEditModal}
-                                        className="bg-black bg-opacity-50 hover:bg-blue-500 text-white p-1 rounded-full transition-colors"
+                                        className="bg-black/50 hover:bg-primary text-white h-6 w-6"
                                         title="Edit with AI"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                    </button>
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
                                     {/* Delete button */}
-                                    <button
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
                                         onClick={() => {
                                             const newSlides = [...slides];
                                             newSlides[activeIndex] = { ...activeSlide, imageUrl: undefined };
                                             onUpdateSlides(newSlides);
                                         }}
-                                        className="bg-black bg-opacity-50 hover:bg-red-500 text-white p-1 rounded-full transition-colors"
+                                        className="bg-black/50 hover:bg-destructive text-white h-6 w-6"
                                         title="Remove image"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                        </svg>
-                                    </button>
+                                        <X className="h-4 w-4" />
+                                    </Button>
                                 </div>
                              </div>
                         ) : (
-                             <div className="h-32 bg-gray-800 rounded-md border-2 border-dashed border-gray-600 flex items-center justify-center mb-3">
-                                 <span className="text-gray-500 text-xs">No Image Selected</span>
+                             <div className="h-32 bg-secondary rounded-md border-2 border-dashed border-border flex items-center justify-center mb-3">
+                                 <span className="text-muted-foreground text-xs">No Image Selected</span>
                              </div>
                         )}
-                        
+
                         <div className="grid grid-cols-2 gap-2 mb-4">
-                            <button 
+                            <Button
+                                variant="secondary"
                                 onClick={() => fileInputRef.current?.click()}
-                                className="bg-gray-600 hover:bg-gray-500 text-white py-2 rounded text-xs font-semibold transition-colors"
+                                className="text-xs"
                             >
+                                <Upload className="h-4 w-4 mr-2" />
                                 Upload File
-                            </button>
-                            <input 
-                                type="file" 
-                                ref={fileInputRef} 
-                                className="hidden" 
+                            </Button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
                                 accept="image/*"
                                 onChange={handleFileUpload}
                             />
-                            <button
+                            <Button
                                 onClick={handleGenerateImage}
                                 disabled={generatingSlideIds.has(activeSlide.id)}
-                                className={`bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-semibold transition-colors flex items-center justify-center ${generatingSlideIds.has(activeSlide.id) ? 'opacity-70 cursor-wait' : ''}`}
+                                className="text-xs"
                             >
-                                {generatingSlideIds.has(activeSlide.id) ? 'Generating...' : 'AI Generate'}
-                            </button>
+                                {generatingSlideIds.has(activeSlide.id) ? (
+                                    <>
+                                        <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                                        Generating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="h-4 w-4 mr-2" />
+                                        AI Generate
+                                    </>
+                                )}
+                            </Button>
                         </div>
-                        
+
                          {/* Model & Aspect Ratio Selectors for Image */}
                          <div className="grid grid-cols-2 gap-2 mb-4">
                              <div>
-                                 <label className="text-xs text-gray-400 block mb-1">AI Model</label>
-                                 <div className="relative">
-                                    <select
-                                        value={selectedImageModel}
-                                        onChange={(e) => setSelectedImageModel(e.target.value)}
-                                        className="w-full appearance-none bg-gray-800 border border-gray-600 text-gray-300 text-xs rounded p-2 pr-6 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer hover:border-gray-500 transition-colors"
-                                    >
-                                        <option value={IMAGE_MODEL_PRO}>Pro (Best)</option>
-                                        <option value={IMAGE_MODEL_FLASH}>Flash (Fast)</option>
-                                    </select>
-                                    <div className="absolute inset-y-0 right-0 flex items-center px-1 pointer-events-none text-gray-400">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </div>
-                                </div>
+                                 <Label className="text-xs text-muted-foreground block mb-1">AI Model</Label>
+                                 <Select value={selectedImageModel} onValueChange={setSelectedImageModel}>
+                                    <SelectTrigger className="text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={IMAGE_MODEL_PRO}>Pro (Best)</SelectItem>
+                                        <SelectItem value={IMAGE_MODEL_FLASH}>Flash (Fast)</SelectItem>
+                                    </SelectContent>
+                                 </Select>
                             </div>
                             <div>
-                                 <label className="text-xs text-gray-400 block mb-1">Image Ratio</label>
-                                 <div className="relative">
-                                    <select
-                                        value={imageAspectRatio}
-                                        onChange={(e) => setImageAspectRatio(e.target.value as AspectRatio)}
-                                        className="w-full appearance-none bg-gray-800 border border-gray-600 text-gray-300 text-xs rounded p-2 pr-6 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer hover:border-gray-500 transition-colors"
-                                    >
-                                        <option value="16/9">16:9 Landscape</option>
-                                        <option value="1/1">1:1 Square</option>
-                                        <option value="4/5">4:5 Portrait</option>
-                                        <option value="9/16">9:16 Story</option>
-                                    </select>
-                                    <div className="absolute inset-y-0 right-0 flex items-center px-1 pointer-events-none text-gray-400">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </div>
-                                </div>
+                                 <Label className="text-xs text-muted-foreground block mb-1">Image Ratio</Label>
+                                 <Select value={imageAspectRatio} onValueChange={(value) => setImageAspectRatio(value as AspectRatio)}>
+                                    <SelectTrigger className="text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="16/9">16:9 Landscape</SelectItem>
+                                        <SelectItem value="1/1">1:1 Square</SelectItem>
+                                        <SelectItem value="4/5">4:5 Portrait</SelectItem>
+                                        <SelectItem value="9/16">9:16 Story</SelectItem>
+                                    </SelectContent>
+                                 </Select>
                             </div>
                         </div>
 
                          {/* Image Controls: Height & Offset & Gradient */}
                          {activeSlide.imageUrl && (
-                             <div className="space-y-4 pt-2 border-t border-gray-700">
+                             <div className="space-y-4 pt-2 border-t border-border">
                                 {/* Image Height Slider */}
                                 {(style === CarouselStyle.STORYTELLER || !activeSlide.overlayImage) && (
                                     <div>
-                                        <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                        <div className="flex justify-between text-xs text-muted-foreground mb-1">
                                             <span>Image Height</span>
                                             <span>{activeSlide.imageScale || 50}%</span>
                                         </div>
-                                        <input 
-                                            type="range" 
-                                            min="10" 
-                                            max="90" 
-                                            value={activeSlide.imageScale || 50} 
-                                            onChange={(e) => handleImageScaleChange(parseInt(e.target.value))}
-                                            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                        <Slider
+                                            value={[activeSlide.imageScale || 50]}
+                                            min={10}
+                                            max={90}
+                                            step={1}
+                                            onValueChange={(value) => handleImageScaleChange(value[0])}
                                         />
                                     </div>
                                 )}
 
                                 {/* Vertical Position Slider (Offset) */}
                                 <div>
-                                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
                                         <span>Vertical Position</span>
                                         <span>{activeSlide.imageOffsetY !== undefined ? activeSlide.imageOffsetY : 50}%</span>
                                     </div>
-                                    <input 
-                                        type="range" 
-                                        min="0" 
-                                        max="100" 
-                                        value={activeSlide.imageOffsetY !== undefined ? activeSlide.imageOffsetY : 50} 
-                                        onChange={(e) => handleImageOffsetChange(parseInt(e.target.value))}
-                                        className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-green-500"
+                                    <Slider
+                                        value={[activeSlide.imageOffsetY !== undefined ? activeSlide.imageOffsetY : 50]}
+                                        min={0}
+                                        max={100}
+                                        step={1}
+                                        onValueChange={(value) => handleImageOffsetChange(value[0])}
                                     />
-                                    <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+                                    <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
                                         <span>Top</span>
                                         <span>Center</span>
                                         <span>Bottom</span>
@@ -2199,17 +2242,16 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                                 {/* Gradient Height Slider (Storyteller Overlay Only) */}
                                 {style === CarouselStyle.STORYTELLER && activeSlide.overlayImage !== false && (
                                      <div>
-                                        <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                        <div className="flex justify-between text-xs text-muted-foreground mb-1">
                                             <span>Overlay Fade Height</span>
                                             <span>{activeSlide.gradientHeight !== undefined ? activeSlide.gradientHeight : 60}%</span>
                                         </div>
-                                        <input 
-                                            type="range" 
-                                            min="0" 
-                                            max="100" 
-                                            value={activeSlide.gradientHeight !== undefined ? activeSlide.gradientHeight : 60} 
-                                            onChange={(e) => handleGradientHeightChange(parseInt(e.target.value))}
-                                            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                                        <Slider
+                                            value={[activeSlide.gradientHeight !== undefined ? activeSlide.gradientHeight : 60]}
+                                            min={0}
+                                            max={100}
+                                            step={1}
+                                            onValueChange={(value) => handleGradientHeightChange(value[0])}
                                         />
                                     </div>
                                 )}
@@ -2217,9 +2259,9 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                         )}
 
                         <div className="mt-3">
-                             <label className="text-xs text-gray-400 block mb-1">Prompt override</label>
-                             <textarea 
-                                className="w-full h-16 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white outline-none resize-none"
+                             <Label className="text-xs text-muted-foreground block mb-1">Prompt override</Label>
+                             <Textarea
+                                className="w-full h-16 text-xs resize-none"
                                 placeholder="Describe image..."
                                 value={activeSlide.imagePrompt || ''}
                                 onChange={(e) => {

@@ -20,6 +20,17 @@ import { AppStep, CarouselStyle, Profile, Slide, SlideType, AspectRatio, Uploade
 import { MOCK_SLIDES, DEFAULT_AVATAR } from './constants';
 import { generateCarouselContent, processDocument, TEXT_MODEL_PRO, TEXT_MODEL_PRO_2_5, TEXT_MODEL_FLASH, setApiKey, getApiKeyMasked, hasApiKey } from './services/geminiService';
 import Workspace from './components/Workspace';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
+import { cn } from '@/lib/utils';
+import { Key, Sparkles, Wrench, Upload, X, Loader2, Rocket, Sun, Moon } from 'lucide-react';
+
+type EditorTheme = 'light' | 'dark';
 
 const App: React.FC = () => {
   // ============================================================================
@@ -65,6 +76,24 @@ const App: React.FC = () => {
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyDisplay, setApiKeyDisplay] = useState('');
+
+  // ============================================================================
+  // EDITOR THEME (light/dark mode for the editor UI)
+  // ============================================================================
+  const [editorTheme, setEditorTheme] = useState<EditorTheme>('light');
+
+  // Apply theme class to document root
+  useEffect(() => {
+    if (editorTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [editorTheme]);
+
+  const toggleEditorTheme = () => {
+    setEditorTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   // Check if API key is already configured on mount
   useEffect(() => {
@@ -233,32 +262,44 @@ const App: React.FC = () => {
         onUpdateSlides={setSlides}
         onStyleChange={setStyle}
         onBack={() => setStep('METHOD_SELECT')}
+        editorTheme={editorTheme}
+        onEditorThemeToggle={toggleEditorTheme}
       />
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="max-w-xl w-full bg-white rounded-2xl shadow-xl overflow-hidden">
-        
-        {/* Header Progress */}
-        <div className="bg-gray-900 p-6 text-center">
-            <h1 className="text-2xl font-bold text-white tracking-tight">CarouselAI</h1>
-            <p className="text-gray-400 text-sm mt-1">Create viral Instagram posts in seconds</p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="max-w-xl w-full overflow-hidden">
 
-        <div className="p-8">
-            
+        {/* Header */}
+        <CardHeader className="bg-card border-b text-center relative">
+            {/* Theme Toggle */}
+            <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleEditorTheme}
+                className="absolute right-4 top-4"
+                title={editorTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            >
+                {editorTheme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            </Button>
+            <CardTitle className="text-2xl font-bold tracking-tight">CarouselAI</CardTitle>
+            <CardDescription>Create viral Instagram posts in seconds</CardDescription>
+        </CardHeader>
+
+        <CardContent className="p-8">
+
             {/* 1. Format Selection */}
             {step === 'FORMAT_SELECT' && (
                 <div className="space-y-6">
                     {/* API Key Configuration */}
-                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                    <div className="bg-muted/50 border border-border rounded-xl p-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <span className="text-lg">🔑</span>
+                                <Key className="h-5 w-5 text-muted-foreground" />
                                 <div>
-                                    <p className="text-sm font-medium text-gray-700">Gemini API Key</p>
+                                    <p className="text-sm font-medium">Gemini API Key</p>
                                     {apiKeyConfigured ? (
                                         <p className="text-xs text-green-600">Configured: {apiKeyDisplay}</p>
                                     ) : (
@@ -266,61 +307,57 @@ const App: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                            <button
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-                                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                             >
                                 {showApiKeyInput ? 'Cancel' : (apiKeyConfigured ? 'Change' : 'Setup')}
-                            </button>
+                            </Button>
                         </div>
 
                         {showApiKeyInput && (
-                            <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="mt-3 pt-3 border-t border-border">
                                 <div className="flex gap-2">
-                                    <input
+                                    <Input
                                         type="password"
                                         value={apiKeyInput}
                                         onChange={(e) => setApiKeyInput(e.target.value)}
                                         placeholder="Enter your Gemini API key"
-                                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                         onKeyDown={(e) => e.key === 'Enter' && handleSaveApiKey()}
+                                        className="flex-1"
                                     />
-                                    <button
+                                    <Button
                                         onClick={handleSaveApiKey}
                                         disabled={!apiKeyInput.trim()}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                                            apiKeyInput.trim()
-                                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                        }`}
                                     >
                                         Save
-                                    </button>
+                                    </Button>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2">
-                                    Get your API key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google AI Studio</a>
+                                <p className="text-xs text-muted-foreground mt-2">
+                                    Get your API key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google AI Studio</a>
                                 </p>
                             </div>
                         )}
                     </div>
 
-                    <h2 className="text-xl font-semibold text-gray-800 text-center">Choose a Style</h2>
+                    <h2 className="text-xl font-semibold text-center">Choose a Style</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <button
                             onClick={() => handleFormatSelect(CarouselStyle.TWITTER)}
-                            className="p-6 border-2 border-blue-500 bg-blue-50 rounded-xl text-left hover:shadow-lg transition-all group"
+                            className="p-6 border-2 border-primary/50 bg-primary/5 rounded-xl text-left hover:shadow-lg hover:border-primary transition-all group"
                         >
-                            <div className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center mb-4 text-xl font-bold">𝕏</div>
-                            <h3 className="font-bold text-gray-900 group-hover:text-blue-700">Twitter Style</h3>
-                            <p className="text-sm text-gray-500 mt-1">Classic tweet screenshot aesthetic. Clean, text-focused, authoritative.</p>
+                            <div className="w-10 h-10 bg-primary text-primary-foreground rounded-full flex items-center justify-center mb-4 text-xl font-bold">𝕏</div>
+                            <h3 className="font-bold group-hover:text-primary">Twitter Style</h3>
+                            <p className="text-sm text-muted-foreground mt-1">Classic tweet screenshot aesthetic. Clean, text-focused, authoritative.</p>
                         </button>
                         <button
                             onClick={() => handleFormatSelect(CarouselStyle.STORYTELLER)}
-                            className="p-6 border-2 border-purple-500 bg-purple-50 rounded-xl text-left hover:shadow-lg transition-all group"
+                            className="p-6 border-2 border-muted bg-muted/30 rounded-xl text-left hover:shadow-lg hover:border-primary/50 transition-all group"
                         >
-                            <div className="w-10 h-10 bg-purple-500 text-white rounded-full flex items-center justify-center mb-4 text-xl font-bold">📷</div>
-                            <h3 className="font-bold text-gray-900 group-hover:text-purple-700">Storyteller</h3>
-                            <p className="text-sm text-gray-500 mt-1">Image-first, bold typography, cinematic overlays. High impact.</p>
+                            <div className="w-10 h-10 bg-muted text-foreground rounded-full flex items-center justify-center mb-4 text-xl font-bold">📷</div>
+                            <h3 className="font-bold group-hover:text-primary">Storyteller</h3>
+                            <p className="text-sm text-muted-foreground mt-1">Image-first, bold typography, cinematic overlays. High impact.</p>
                         </button>
                     </div>
                 </div>
@@ -329,48 +366,48 @@ const App: React.FC = () => {
             {/* 2. Aspect Ratio Selection */}
             {step === 'ASPECT_RATIO_SELECT' && (
                 <div className="space-y-6 animate-fade-in">
-                    <h2 className="text-xl font-semibold text-gray-800 text-center">Select Aspect Ratio</h2>
-                    <p className="text-center text-gray-500 text-sm">Choose the best fit for your Instagram post.</p>
-                    
+                    <h2 className="text-xl font-semibold text-center">Select Aspect Ratio</h2>
+                    <p className="text-center text-muted-foreground text-sm">Choose the best fit for your Instagram post.</p>
+
                     <div className="grid grid-cols-2 gap-6 max-w-sm mx-auto">
                         <button
                             onClick={() => handleAspectRatioSelect('1/1')}
-                            className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group"
+                            className="flex flex-col items-center p-4 border-2 border-border rounded-xl hover:border-primary hover:bg-primary/5 transition-all group"
                         >
-                            <div className="w-16 h-16 bg-gray-300 rounded mb-3 group-hover:bg-blue-200 transition-colors"></div>
-                            <span className="font-bold text-gray-700">Square (1:1)</span>
-                            <span className="text-xs text-gray-400">Standard Post</span>
+                            <div className="w-16 h-16 bg-muted rounded mb-3 group-hover:bg-primary/20 transition-colors"></div>
+                            <span className="font-bold">Square (1:1)</span>
+                            <span className="text-xs text-muted-foreground">Standard Post</span>
                         </button>
 
                         <button
                             onClick={() => handleAspectRatioSelect('4/5')}
-                            className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group"
+                            className="flex flex-col items-center p-4 border-2 border-border rounded-xl hover:border-primary hover:bg-primary/5 transition-all group"
                         >
-                            <div className="w-16 h-20 bg-gray-300 rounded mb-3 group-hover:bg-blue-200 transition-colors"></div>
-                            <span className="font-bold text-gray-700">Portrait (4:5)</span>
-                            <span className="text-xs text-gray-400">Best for Reach</span>
+                            <div className="w-16 h-20 bg-muted rounded mb-3 group-hover:bg-primary/20 transition-colors"></div>
+                            <span className="font-bold">Portrait (4:5)</span>
+                            <span className="text-xs text-muted-foreground">Best for Reach</span>
                         </button>
                     </div>
-                     <button onClick={() => setStep('FORMAT_SELECT')} className="w-full text-center text-gray-400 text-sm hover:text-gray-600 mt-4">Back</button>
+                    <Button variant="ghost" onClick={() => setStep('FORMAT_SELECT')} className="w-full">Back</Button>
                 </div>
             )}
 
             {/* 3. Profile Setup */}
             {step === 'PROFILE_INPUT' && (
                 <form onSubmit={handleProfileSubmit} className="space-y-6 animate-fade-in">
-                    <h2 className="text-xl font-semibold text-gray-800 text-center">Profile Setup</h2>
-                    
+                    <h2 className="text-xl font-semibold text-center">Profile Setup</h2>
+
                     <div className="flex flex-col items-center space-y-4">
                         <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                            <img src={profile.avatarUrl} alt="Avatar" className="w-24 h-24 rounded-full object-cover border-4 border-gray-100 shadow-sm" />
-                            <div className="absolute inset-0 bg-black bg-opacity-30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-medium">
+                            <img src={profile.avatarUrl} alt="Avatar" className="w-24 h-24 rounded-full object-cover border-4 border-border shadow-sm" />
+                            <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-medium">
                                 Upload
                             </div>
                         </div>
-                        <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            className="hidden" 
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
                             accept="image/*"
                             onChange={handleAvatarUpload}
                         />
@@ -378,39 +415,41 @@ const App: React.FC = () => {
 
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
-                            <input 
+                            <Label htmlFor="name">Display Name</Label>
+                            <Input
+                                id="name"
                                 required
-                                type="text" 
+                                type="text"
                                 value={profile.name}
                                 onChange={e => setProfile({...profile, name: e.target.value})}
-                                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none"
                                 placeholder="e.g. Frank Costa"
+                                className="mt-1"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Handle</label>
-                            <div className="flex">
-                                <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">@</span>
-                                <input 
+                            <Label htmlFor="handle">Handle</Label>
+                            <div className="flex mt-1">
+                                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">@</span>
+                                <Input
+                                    id="handle"
                                     required
-                                    type="text" 
+                                    type="text"
                                     value={profile.handle}
                                     onChange={e => setProfile({...profile, handle: e.target.value})}
-                                    className="w-full border border-gray-300 rounded-r-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none"
                                     placeholder="frankcosta"
+                                    className="rounded-l-none"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex space-x-3">
-                         <button type="button" onClick={() => setStep('ASPECT_RATIO_SELECT')} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors">
+                    <div className="flex gap-3">
+                        <Button type="button" variant="secondary" onClick={() => setStep('ASPECT_RATIO_SELECT')} className="flex-1">
                             Back
-                        </button>
-                        <button type="submit" className="flex-[2] bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors">
+                        </Button>
+                        <Button type="submit" className="flex-[2]">
                             Continue
-                        </button>
+                        </Button>
                     </div>
                 </form>
             )}
@@ -418,89 +457,88 @@ const App: React.FC = () => {
             {/* 4. Method Selection */}
             {step === 'METHOD_SELECT' && (
                 <div className="space-y-6 animate-fade-in">
-                    <h2 className="text-xl font-semibold text-gray-800 text-center">How do you want to start?</h2>
-                    
+                    <h2 className="text-xl font-semibold text-center">How do you want to start?</h2>
+
                     <div className="grid grid-cols-1 gap-4">
-                         <button 
+                        <button
                             onClick={() => setStep('AI_INPUT')}
-                            className="relative overflow-hidden p-6 border-2 border-purple-100 bg-purple-50 rounded-xl text-left hover:shadow-md transition-all group"
+                            className="relative overflow-hidden p-6 border-2 border-primary/30 bg-primary/5 rounded-xl text-left hover:shadow-md hover:border-primary/50 transition-all group"
                         >
                             <div className="absolute top-0 right-0 p-2">
-                                <span className="bg-purple-600 text-white text-[10px] uppercase font-bold px-2 py-1 rounded-full">Gemini 3 Pro</span>
+                                <span className="bg-primary text-primary-foreground text-[10px] uppercase font-bold px-2 py-1 rounded-full">Gemini 3 Pro</span>
                             </div>
-                            <h3 className="font-bold text-gray-900 text-lg">✨ Use AI Magic</h3>
-                            <p className="text-sm text-gray-600 mt-1">Give us a topic, URL, or upload a document (PDF, TXT, MD) and we'll create 5-10 slides automatically.</p>
+                            <div className="flex items-center gap-2 mb-1">
+                                <Sparkles className="h-5 w-5 text-primary" />
+                                <h3 className="font-bold text-lg">Use AI Magic</h3>
+                            </div>
+                            <p className="text-sm text-muted-foreground">Give us a topic, URL, or upload a document (PDF, TXT, MD) and we'll create 5-10 slides automatically.</p>
                         </button>
 
-                        <button 
+                        <button
                             onClick={handleManualCreate}
-                            className="p-6 border-2 border-gray-100 bg-white rounded-xl text-left hover:border-gray-300 transition-all"
+                            className="p-6 border-2 border-border bg-card rounded-xl text-left hover:border-muted-foreground/30 transition-all"
                         >
-                            <h3 className="font-bold text-gray-900 text-lg">🛠️ Manual Creation</h3>
-                            <p className="text-sm text-gray-600 mt-1">Start from scratch. Add slides, write text, and upload images yourself.</p>
+                            <div className="flex items-center gap-2 mb-1">
+                                <Wrench className="h-5 w-5 text-muted-foreground" />
+                                <h3 className="font-bold text-lg">Manual Creation</h3>
+                            </div>
+                            <p className="text-sm text-muted-foreground">Start from scratch. Add slides, write text, and upload images yourself.</p>
                         </button>
                     </div>
-                     <button onClick={() => setStep('PROFILE_INPUT')} className="w-full text-center text-gray-400 text-sm hover:text-gray-600">Back</button>
+                    <Button variant="ghost" onClick={() => setStep('PROFILE_INPUT')} className="w-full">Back</Button>
                 </div>
             )}
 
             {/* 5. AI Input */}
             {step === 'AI_INPUT' && (
-                 <div className="space-y-6 animate-fade-in">
+                <div className="space-y-6 animate-fade-in">
                     <div className="text-center">
-                        <h2 className="text-xl font-semibold text-gray-800">What's your post about?</h2>
-                        <p className="text-sm text-gray-500 mt-1">We'll use Gemini to create a viral structure.</p>
+                        <h2 className="text-xl font-semibold">What's your post about?</h2>
+                        <p className="text-sm text-muted-foreground mt-1">We'll use Gemini to create a viral structure.</p>
                     </div>
-                    
+
                     {/* Topic Input */}
                     <div>
-                        <textarea
+                        <Textarea
                             value={aiTopic}
                             onChange={(e) => setAiTopic(e.target.value)}
-                            className="w-full h-28 border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-purple-500 outline-none resize-none"
+                            className="h-28 resize-none"
                             placeholder="Enter a topic, paste a URL, or describe what you want to create..."
                         />
                     </div>
 
                     {/* Document Upload Section */}
-                    <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-purple-400 transition-colors">
+                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
                         {uploadedDocument ? (
-                            // Show uploaded file
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <span className="text-2xl">
                                         {uploadedDocument.type === 'pdf' ? '📄' : '📃'}
                                     </span>
                                     <div className="text-left">
-                                        <p className="text-sm font-medium text-gray-700 truncate max-w-[200px]">
+                                        <p className="text-sm font-medium truncate max-w-[200px]">
                                             {uploadedDocument.name}
                                         </p>
-                                        <p className="text-xs text-gray-400">
+                                        <p className="text-xs text-muted-foreground">
                                             {(uploadedDocument.size / 1024).toFixed(1)} KB
                                         </p>
                                     </div>
                                 </div>
-                                <button
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={handleRemoveDocument}
-                                    className="text-gray-400 hover:text-red-500 p-1"
-                                    type="button"
+                                    className="text-muted-foreground hover:text-destructive"
                                 >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
+                                    <X className="h-4 w-4" />
+                                </Button>
                             </div>
                         ) : isProcessingDocument ? (
-                            // Loading state
                             <div className="flex items-center justify-center gap-2 py-2">
-                                <svg className="animate-spin h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                </svg>
-                                <span className="text-sm text-gray-500">Processing document...</span>
+                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                <span className="text-sm text-muted-foreground">Processing document...</span>
                             </div>
                         ) : (
-                            // Upload prompt
                             <label className="cursor-pointer block py-2">
                                 <input
                                     type="file"
@@ -509,19 +547,18 @@ const App: React.FC = () => {
                                     accept=".pdf,.txt,.md"
                                     onChange={handleDocumentUpload}
                                 />
-                                <span className="text-purple-600 font-medium">Upload a document</span>
-                                <span className="text-gray-400 text-sm ml-1">(PDF, TXT, MD)</span>
+                                <Upload className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
+                                <span className="text-primary font-medium">Upload a document</span>
+                                <span className="text-muted-foreground text-sm ml-1">(PDF, TXT, MD)</span>
                             </label>
                         )}
                     </div>
 
-                    {/* Error message */}
                     {documentError && (
-                        <p className="text-red-500 text-sm text-center">{documentError}</p>
+                        <p className="text-destructive text-sm text-center">{documentError}</p>
                     )}
 
-                    {/* Helpful hint */}
-                    <p className="text-xs text-gray-400 text-center">
+                    <p className="text-xs text-muted-foreground text-center">
                         {uploadedDocument
                             ? "Add a topic above to guide the carousel style, or generate directly from the document."
                             : "Or upload a document to automatically extract content for your carousel."}
@@ -530,68 +567,61 @@ const App: React.FC = () => {
                     {/* Controls Row */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                             <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Slide Count</label>
-                             <div className="flex items-center space-x-2 bg-gray-50 p-2 rounded border border-gray-200">
-                                 <input 
-                                    type="range" 
-                                    min="3" 
-                                    max="15" 
-                                    value={slideCount}
-                                    onChange={(e) => setSlideCount(parseInt(e.target.value))}
-                                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                                 />
-                                 <span className="w-6 text-center font-bold text-gray-800 text-sm">{slideCount}</span>
-                             </div>
+                            <Label className="text-xs uppercase mb-2 block">Slide Count</Label>
+                            <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-md border border-border">
+                                <Slider
+                                    value={[slideCount]}
+                                    onValueChange={(value) => setSlideCount(value[0])}
+                                    min={3}
+                                    max={15}
+                                    step={1}
+                                    className="flex-1"
+                                />
+                                <span className="w-6 text-center font-bold text-sm">{slideCount}</span>
+                            </div>
                         </div>
                         <div>
-                            <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">AI Model</label>
-                            <div className="relative">
-                                <select 
-                                    value={selectedTextModel}
-                                    onChange={(e) => setSelectedTextModel(e.target.value)}
-                                    className="w-full appearance-none bg-white border border-gray-200 text-gray-800 text-sm rounded-lg p-3 pr-10 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none shadow-sm transition-all font-medium cursor-pointer"
-                                >
-                                    <option value={TEXT_MODEL_PRO}>Gemini 3 Pro (Best)</option>
-                                    <option value={TEXT_MODEL_PRO_2_5}>Gemini 2.5 Pro (Balanced)</option>
-                                    <option value={TEXT_MODEL_FLASH}>Gemini 2.5 Flash (Fast)</option>
-                                </select>
-                                <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
-                            </div>
+                            <Label className="text-xs uppercase mb-2 block">AI Model</Label>
+                            <Select value={selectedTextModel} onValueChange={setSelectedTextModel}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={TEXT_MODEL_PRO}>Gemini 3 Pro (Best)</SelectItem>
+                                    <SelectItem value={TEXT_MODEL_PRO_2_5}>Gemini 2.5 Pro (Balanced)</SelectItem>
+                                    <SelectItem value={TEXT_MODEL_FLASH}>Gemini 2.5 Flash (Fast)</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
-                    <button
+                    <Button
                         onClick={handleAiGenerate}
                         disabled={isGenerating || (!aiTopic.trim() && !uploadedDocument)}
-                        className={`w-full py-4 rounded-lg font-bold text-white transition-all flex items-center justify-center space-x-2 ${
-                            isGenerating || (!aiTopic.trim() && !uploadedDocument) ? 'bg-gray-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 shadow-lg'
-                        }`}
+                        className="w-full h-12"
+                        size="lg"
                     >
                         {isGenerating ? (
                             <>
-                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span>Generating Strategy...</span>
+                                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                                Generating Strategy...
                             </>
                         ) : (
-                            <span>🚀 Generate Slides</span>
+                            <>
+                                <Rocket className="h-5 w-5 mr-2" />
+                                Generate Slides
+                            </>
                         )}
-                    </button>
-                    
+                    </Button>
+
                     {!isGenerating && (
-                        <button onClick={() => setStep('METHOD_SELECT')} className="w-full text-center text-gray-400 text-sm hover:text-gray-600">Back</button>
+                        <Button variant="ghost" onClick={() => setStep('METHOD_SELECT')} className="w-full">Back</Button>
                     )}
                 </div>
             )}
 
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
