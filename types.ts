@@ -26,7 +26,8 @@ export enum SlideType {
 export enum CarouselStyle {
   TWITTER = 'TWITTER',           // Tweet screenshot aesthetic (text-focused)
   APPLE_NOTES = 'APPLE_NOTES',   // Reserved for future implementation
-  STORYTELLER = 'STORYTELLER'    // Cinematic image overlays (image-focused)
+  STORYTELLER = 'STORYTELLER',   // Cinematic image overlays (image-focused)
+  LESSON = 'LESSON'              // Educational content (image top, text below, centered footer)
 }
 
 // ============================================================================
@@ -61,9 +62,29 @@ export type FontStyle = 'MODERN' | 'SERIF' | 'TECH';
  */
 export type ContentLayout = 'default' | 'image-after-title' | 'image-first';
 
+/**
+ * Text alignment options for slide content.
+ * Controls horizontal alignment of text elements.
+ */
+export type TextAlignment = 'left' | 'center' | 'right';
+
 // ============================================================================
 // INTERFACES
 // ============================================================================
+
+/**
+ * Global layout settings for slides.
+ * Controls padding, text spacing, and image positioning.
+ * Per-slide overrides can be set in Slide interface.
+ */
+export interface LayoutSettings {
+  contentPadding: number;      // 32-96 (px), default 64
+  imageCanvasOffset: number;   // -200 to +200 (px), default 0 (Twitter only) - allows overflow beyond slide
+  imageMargin: number;         // 0-32 (px), default 0 (Twitter only)
+  textLineHeight: number;      // 1.2-2.0, default 1.5
+  paragraphGap: number;        // 0.5-2.0 (rem), default 1
+  textAlignment: TextAlignment; // left, center, right - default 'left'
+}
 
 /**
  * User/creator profile displayed on slides.
@@ -118,6 +139,23 @@ export interface Slide {
   backgroundImageUrl?: string;        // Full-bleed background image source
   backgroundOverlayColor?: string;    // Overlay color (hex, default: theme-based)
   backgroundOverlayOpacity?: number;  // Overlay opacity 0-100 (default: 50)
+
+  // Per-slide layout overrides (undefined = use global LayoutSettings)
+  contentPadding?: number;            // 32-96 (px)
+  imageCanvasOffset?: number;         // -200 to +200 (px), Twitter only
+  imageMargin?: number;               // 0-32 (px), Twitter only
+  textLineHeight?: number;            // 1.2-2.0
+  paragraphGap?: number;              // 0.5-2.0 (rem)
+  backgroundTextColor?: string;       // hex color, for background image mode
+
+  // Per-slide theme override (undefined = use global theme)
+  theme?: Theme;                      // LIGHT or DARK
+
+  // Spacing for image-after-title layout (Twitter style)
+  imageTextSpacing?: number;          // 0-64 (px), spacing between image and body text
+
+  // Text alignment (undefined = use global)
+  textAlignment?: TextAlignment;      // left, center, right
 }
 
 /**
@@ -145,6 +183,7 @@ export interface CarouselProject {
   fontStyle: FontStyle;            // Global font family
   fontScale: number;               // Global font size multiplier (0.5-1.5)
   globalImageStyle: string;        // Image generation style prefix
+  layoutSettings?: LayoutSettings; // Global layout settings (padding, spacing, etc.)
 
   // Metadata
   createdAt: string;               // ISO timestamp of creation

@@ -15,7 +15,7 @@
  */
 
 import React from 'react';
-import { Slide, Profile, Theme, FontStyle, ContentLayout } from '../types';
+import { Slide, Profile, Theme, FontStyle, ContentLayout, LayoutSettings, TextAlignment } from '../types';
 
 interface TwitterSlideProps {
   slide: Slide;
@@ -30,6 +30,7 @@ interface TwitterSlideProps {
   accentColor?: string;      // Used for pagination badge color
   fontStyle?: FontStyle;     // Global font style (can be overridden by slide)
   fontScale?: number;        // Global font scale (can be overridden by slide)
+  layoutSettings?: LayoutSettings; // Global layout settings (can be overridden by slide)
 }
 
 // ============================================================================
@@ -97,14 +98,27 @@ const parseInline = (text: string, theme: Theme) => {
  * FONT SCALING:
  * Base sizes are pre-calculated for 1080px width output, then multiplied by fontScale.
  * text-7xl ≈ 72px, text-6xl ≈ 60px, text-5xl ≈ 48px, text-4xl ≈ 36px
+ *
+ * LAYOUT OPTIONS:
+ * - lineHeight: Controls text line-height (1.2-2.0)
+ * - paragraphGap: Space between paragraphs in rem (0.5-2.0)
+ * - textColorOverride: Custom text color (for background image mode)
  */
-const renderMarkdown = (text: string, theme: Theme, fontScale: number = 1.0) => {
+const renderMarkdown = (
+  text: string,
+  theme: Theme,
+  fontScale: number = 1.0,
+  lineHeight: number = 1.5,
+  paragraphGap: number = 1,
+  textColorOverride?: string,
+  textAlignment: TextAlignment = 'left'
+) => {
   const lines = text.split('\n');
 
-  const hColor = theme === 'DARK' ? 'text-white' : 'text-gray-900';
-  const textColor = theme === 'DARK' ? 'text-gray-200' : 'text-gray-800';
-  const bulletColor = theme === 'DARK' ? 'text-gray-500' : 'text-gray-400';
-  const numberColor = theme === 'DARK' ? 'text-white' : 'text-gray-900';
+  const hColor = textColorOverride || (theme === 'DARK' ? '#FFFFFF' : '#111827');
+  const textColor = textColorOverride || (theme === 'DARK' ? '#E5E7EB' : '#1F2937');
+  const bulletColor = textColorOverride || (theme === 'DARK' ? '#6B7280' : '#9CA3AF');
+  const numberColor = textColorOverride || (theme === 'DARK' ? '#FFFFFF' : '#111827');
 
   // Base font sizes in pixels (for 1080px width)
   const h1Size = 72 * fontScale;
@@ -112,23 +126,29 @@ const renderMarkdown = (text: string, theme: Theme, fontScale: number = 1.0) => 
   const bodySize = 48 * fontScale;
   const bulletSize = 36 * fontScale;
 
+  // Paragraph spacing in pixels (rem * 16px base)
+  const paragraphSpacing = paragraphGap * 16;
+
+  // List alignment classes based on textAlignment
+  const listJustify = textAlignment === 'center' ? 'justify-center' : textAlignment === 'right' ? 'justify-end' : '';
+
   return lines.map((line, idx) => {
     const trimmed = line.trim();
 
     // Headers
     if (line.startsWith('# ')) {
-      return <h1 key={idx} className={`font-extrabold leading-tight mb-8 tracking-tight ${hColor}`} style={{ fontSize: `${h1Size}px` }}>{parseInline(line.slice(2), theme)}</h1>;
+      return <h1 key={idx} className="font-extrabold tracking-tight" style={{ fontSize: `${h1Size}px`, lineHeight: lineHeight, marginBottom: `${paragraphSpacing}px`, color: hColor, textAlign: textAlignment }}>{parseInline(line.slice(2), theme)}</h1>;
     }
     if (line.startsWith('## ')) {
-      return <h2 key={idx} className={`font-bold leading-tight mb-6 tracking-tight ${hColor}`} style={{ fontSize: `${h2Size}px` }}>{parseInline(line.slice(3), theme)}</h2>;
+      return <h2 key={idx} className="font-bold tracking-tight" style={{ fontSize: `${h2Size}px`, lineHeight: lineHeight, marginBottom: `${paragraphSpacing * 0.75}px`, color: hColor, textAlign: textAlignment }}>{parseInline(line.slice(3), theme)}</h2>;
     }
 
     // Bullet list
     if (trimmed.startsWith('- ')) {
        return (
-         <div key={idx} className="flex items-start mb-4 ml-2">
-            <span className={`mr-4 mt-1 ${bulletColor}`} style={{ fontSize: `${bulletSize}px` }}>•</span>
-            <span className={`leading-normal ${textColor}`} style={{ fontSize: `${bodySize}px` }}>{parseInline(line.slice(2), theme)}</span>
+         <div key={idx} className={`flex items-start ${textAlignment === 'left' ? 'ml-2' : ''} ${listJustify}`} style={{ marginBottom: `${paragraphSpacing * 0.5}px` }}>
+            <span className="mr-4 mt-1" style={{ fontSize: `${bulletSize}px`, color: bulletColor }}>•</span>
+            <span style={{ fontSize: `${bodySize}px`, lineHeight: lineHeight, color: textColor }}>{parseInline(line.slice(2), theme)}</span>
          </div>
        );
     }
@@ -138,18 +158,18 @@ const renderMarkdown = (text: string, theme: Theme, fontScale: number = 1.0) => 
         const number = trimmed.match(/^\d+/)?.[0];
         const content = trimmed.replace(/^\d+\. /, '');
         return (
-            <div key={idx} className="flex items-start mb-4 ml-2">
-               <span className={`mr-4 font-bold ${numberColor}`} style={{ fontSize: `${bodySize}px` }}>{number}.</span>
-               <span className={`leading-normal ${textColor}`} style={{ fontSize: `${bodySize}px` }}>{parseInline(content, theme)}</span>
+            <div key={idx} className={`flex items-start ${textAlignment === 'left' ? 'ml-2' : ''} ${listJustify}`} style={{ marginBottom: `${paragraphSpacing * 0.5}px` }}>
+               <span className="mr-4 font-bold" style={{ fontSize: `${bodySize}px`, color: numberColor }}>{number}.</span>
+               <span style={{ fontSize: `${bodySize}px`, lineHeight: lineHeight, color: textColor }}>{parseInline(content, theme)}</span>
             </div>
           );
     }
 
     // Empty lines create vertical spacing
-    if (!trimmed) return <div key={idx} className="h-8"></div>;
+    if (!trimmed) return <div key={idx} style={{ height: `${paragraphSpacing * 0.5}px` }}></div>;
 
     // Regular paragraph
-    return <p key={idx} className={`leading-relaxed mb-6 ${textColor}`} style={{ fontSize: `${bodySize}px` }}>{parseInline(line, theme)}</p>;
+    return <p key={idx} style={{ fontSize: `${bodySize}px`, lineHeight: lineHeight, marginBottom: `${paragraphSpacing}px`, color: textColor, textAlign: textAlignment }}>{parseInline(line, theme)}</p>;
   });
 };
 
@@ -185,7 +205,24 @@ const splitContentByHeaders = (content: string): { titleLines: string; bodyLines
 // COMPONENT
 // ============================================================================
 
-const TwitterSlide: React.FC<TwitterSlideProps> = ({ slide, profile, index, total, showSlideNumbers, headerScale = 1.0, theme, forExport = false, showVerifiedBadge = true, accentColor, fontStyle = 'MODERN', fontScale = 1.0 }) => {
+const TwitterSlide: React.FC<TwitterSlideProps> = ({ slide, profile, index, total, showSlideNumbers, headerScale = 1.0, theme, forExport = false, showVerifiedBadge = true, accentColor, fontStyle = 'MODERN', fontScale = 1.0, layoutSettings }) => {
+
+  // DEFAULT LAYOUT SETTINGS
+  const defaultLayoutSettings: LayoutSettings = {
+    contentPadding: 64,
+    imageCanvasOffset: 0,
+    imageMargin: 0,
+    textLineHeight: 1.5,
+    paragraphGap: 1,
+  };
+
+  // EFFECTIVE LAYOUT VALUES (per-slide override > global > default)
+  const effectiveContentPadding = slide.contentPadding ?? layoutSettings?.contentPadding ?? defaultLayoutSettings.contentPadding;
+  const effectiveImageCanvasOffset = slide.imageCanvasOffset ?? layoutSettings?.imageCanvasOffset ?? defaultLayoutSettings.imageCanvasOffset;
+  const effectiveImageMargin = slide.imageMargin ?? layoutSettings?.imageMargin ?? defaultLayoutSettings.imageMargin;
+  const effectiveLineHeight = slide.textLineHeight ?? layoutSettings?.textLineHeight ?? defaultLayoutSettings.textLineHeight;
+  const effectiveParagraphGap = slide.paragraphGap ?? layoutSettings?.paragraphGap ?? defaultLayoutSettings.paragraphGap;
+  const effectiveTextAlignment = slide.textAlignment ?? layoutSettings?.textAlignment ?? 'left';
 
   // LAYOUT CALCULATIONS
   // When an image is shown, it takes imageScale% of height; text takes the rest
@@ -201,6 +238,7 @@ const TwitterSlide: React.FC<TwitterSlideProps> = ({ slide, profile, index, tota
   const showBackground = slide.showBackgroundImage && slide.backgroundImageUrl;
   const bgOverlayColor = slide.backgroundOverlayColor || (theme === 'DARK' ? '#000000' : '#FFFFFF');
   const bgOverlayOpacity = slide.backgroundOverlayOpacity !== undefined ? slide.backgroundOverlayOpacity : 50;
+  const bgTextColor = slide.backgroundTextColor; // Custom text color for background image mode
 
   // Split content for 'image-after-title' layout
   const { titleLines, bodyLines } = contentLayout === 'image-after-title'
@@ -242,13 +280,32 @@ const TwitterSlide: React.FC<TwitterSlideProps> = ({ slide, profile, index, tota
   const renderImage = () => {
     if (!slide.showImage) return null;
 
+    // When offset is applied, adjust the container height to account for the movement
+    // This prevents leaving empty space behind
+    const hasOffset = effectiveImageCanvasOffset !== 0;
+    const adjustedHeight = hasOffset
+      ? `calc(${imageHeightPercent}% + ${effectiveImageCanvasOffset}px)`
+      : `${imageHeightPercent}%`;
+
     return (
       <div
         className="w-full pt-8 transition-all duration-300 ease-in-out flex flex-col"
-        style={{ height: `${imageHeightPercent}%` }}
+        style={{
+          height: adjustedHeight,
+          padding: effectiveImageMargin > 0 ? `0 ${effectiveImageMargin}px` : undefined,
+          // Use negative margin to pull following content up when image moves down
+          marginBottom: effectiveImageCanvasOffset > 0 ? `-${effectiveImageCanvasOffset}px` : undefined
+        }}
       >
         {slide.imageUrl ? (
-          <div className={`flex-1 w-full rounded-3xl overflow-hidden border ${borderColor} relative shadow-sm`}>
+          <div
+            className={`flex-1 w-full rounded-3xl overflow-hidden border ${borderColor} shadow-sm`}
+            style={{
+              // Keep the image at its original size regardless of container adjustments
+              height: hasOffset ? `calc(100% - ${effectiveImageCanvasOffset}px)` : undefined,
+              flexShrink: 0
+            }}
+          >
             <img
               src={slide.imageUrl}
               alt="Slide visual"
@@ -271,6 +328,9 @@ const TwitterSlide: React.FC<TwitterSlideProps> = ({ slide, profile, index, tota
     );
   };
 
+  // Text color override when background image is set
+  const textColorOverride = showBackground && bgTextColor ? bgTextColor : undefined;
+
   /** Renders text content */
   const renderTextContent = (content: string, heightPercent: number) => (
     <div
@@ -278,7 +338,7 @@ const TwitterSlide: React.FC<TwitterSlideProps> = ({ slide, profile, index, tota
       style={{ height: `${heightPercent}%` }}
     >
       <div className="flex-1 w-full overflow-y-auto pr-4 no-scrollbar">
-        {renderMarkdown(content, theme, effectiveFontScale)}
+        {renderMarkdown(content, theme, effectiveFontScale, effectiveLineHeight, effectiveParagraphGap, textColorOverride, effectiveTextAlignment)}
       </div>
     </div>
   );
@@ -300,22 +360,27 @@ const TwitterSlide: React.FC<TwitterSlideProps> = ({ slide, profile, index, tota
 
       case 'image-after-title':
         // Title(H1/H2) → Image → Body
+        // imageTextSpacing controls gap between image and body text
+        const imageTextSpacing = slide.imageTextSpacing ?? 16;
         return (
           <div className="flex-1 flex flex-col min-h-0">
             {/* Title section (no fixed height - shrinks to content) */}
             {titleLines.trim() && (
               <div className="flex-shrink-0 w-full overflow-hidden">
                 <div className="w-full overflow-y-auto pr-4 no-scrollbar">
-                  {renderMarkdown(titleLines, theme, effectiveFontScale)}
+                  {renderMarkdown(titleLines, theme, effectiveFontScale, effectiveLineHeight, effectiveParagraphGap, textColorOverride, effectiveTextAlignment)}
                 </div>
               </div>
             )}
             {renderImage()}
-            {/* Body section (fills remaining space) */}
+            {/* Body section (fills remaining space) with adjustable spacing from image */}
             {bodyLines.trim() && (
-              <div className="flex-1 w-full overflow-hidden flex flex-col min-h-0">
+              <div
+                className="flex-1 w-full overflow-hidden flex flex-col min-h-0"
+                style={{ paddingTop: `${imageTextSpacing}px` }}
+              >
                 <div className="flex-1 w-full overflow-y-auto pr-4 no-scrollbar">
-                  {renderMarkdown(bodyLines, theme, effectiveFontScale)}
+                  {renderMarkdown(bodyLines, theme, effectiveFontScale, effectiveLineHeight, effectiveParagraphGap, textColorOverride, effectiveTextAlignment)}
                 </div>
               </div>
             )}
@@ -369,8 +434,9 @@ const TwitterSlide: React.FC<TwitterSlideProps> = ({ slide, profile, index, tota
       {/* ================================================================
           MAIN CONTENT (z-10)
           All content sits above background layers
+          overflow-hidden clips images that extend beyond slide boundaries
           ================================================================ */}
-      <div className="relative z-10 w-full h-full flex flex-col p-16">
+      <div className="relative z-10 w-full h-full flex flex-col overflow-hidden" style={{ padding: `${effectiveContentPadding}px` }}>
 
         {/* Header: Profile - Dynamically Scaled */}
         <div

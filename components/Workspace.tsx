@@ -18,9 +18,10 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Slide, Profile, CarouselStyle, CarouselProject, SlideType, AspectRatio, Theme, FontStyle, ContentLayout } from '../types';
+import { Slide, Profile, CarouselStyle, CarouselProject, SlideType, AspectRatio, Theme, FontStyle, ContentLayout, LayoutSettings, TextAlignment } from '../types';
 import TwitterSlide from './TwitterSlide';
 import StorytellerSlide from './StorytellerSlide';
+import LessonSlide from './LessonSlide';
 import { generateSlideImage, stylizeImage, editImage, refineCarouselContent, getApiAspectRatio, IMAGE_MODEL_PRO, IMAGE_MODEL_FLASH, DEFAULT_IMAGE_STYLE, setApiKey, getApiKeyMasked, hasApiKey } from '../services/geminiService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,6 +94,18 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
   // ============================================================================
   const [fontStyle, setFontStyle] = useState<FontStyle>('MODERN');
   const [fontScale, setFontScale] = useState(1.0); // 0.5 - 1.5
+
+  // ============================================================================
+  // LAYOUT SETTINGS (global, can be overridden per-slide)
+  // ============================================================================
+  const [layoutSettings, setLayoutSettings] = useState<LayoutSettings>({
+    contentPadding: 64,      // 32-96 px
+    imageCanvasOffset: 0,    // -50 to +50 px
+    imageMargin: 0,          // 0-32 px
+    textLineHeight: 1.5,     // 1.2-2.0
+    paragraphGap: 1,         // 0.5-2.0 rem
+    textAlignment: 'left',   // left, center, right
+  });
 
   // ============================================================================
   // GLOBAL IMAGE STYLE
@@ -551,6 +564,7 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
       fontStyle,
       fontScale,
       globalImageStyle,
+      layoutSettings,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -591,6 +605,7 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
         if (project.fontStyle) setFontStyle(project.fontStyle);
         if (project.fontScale) setFontScale(project.fontScale);
         if (project.globalImageStyle) setGlobalImageStyle(project.globalImageStyle);
+        if (project.layoutSettings) setLayoutSettings(project.layoutSettings);
 
         // Set active slide to first slide
         if (project.slides.length > 0) {
@@ -618,12 +633,8 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
    * Converts the carousel between Twitter and Storyteller styles.
    * Adjusts slide properties for optimal display in the new style.
    */
-  const handleConvertStyle = () => {
-    if (!onStyleChange) return;
-
-    const newStyle = style === CarouselStyle.TWITTER
-      ? CarouselStyle.STORYTELLER
-      : CarouselStyle.TWITTER;
+  const handleConvertStyle = (newStyle: CarouselStyle) => {
+    if (!onStyleChange || newStyle === style) return;
 
     // Adjust slide properties for the new style
     const convertedSlides = slides.map(slide => ({
@@ -1012,6 +1023,9 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
   const previewHeight = getPreviewHeight();
 
   const renderSlide = (slide: Slide, idx: number, isExport: boolean) => {
+      // Per-slide theme override (if set) takes precedence over global theme
+      const effectiveTheme = slide.theme || theme;
+
       const commonProps = {
         slide: slide,
         profile: profile,
@@ -1020,15 +1034,19 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
         showSlideNumbers: showSlideNumbers,
         showVerifiedBadge: showVerifiedBadge,
         headerScale: headerScale,
-        theme: theme,
+        theme: effectiveTheme,
         accentColor: showAccent ? accentColor : undefined,
         forExport: isExport,
         fontStyle: fontStyle,
-        fontScale: fontScale
+        fontScale: fontScale,
+        layoutSettings: layoutSettings
       };
 
       if (style === CarouselStyle.STORYTELLER) {
           return <StorytellerSlide {...commonProps} />;
+      }
+      if (style === CarouselStyle.LESSON) {
+          return <LessonSlide {...commonProps} />;
       }
       return <TwitterSlide {...commonProps} />;
   };
@@ -1435,20 +1453,20 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                     {onStyleChange && (
                         <div className="mb-4 p-3 bg-secondary rounded-lg">
                             <div className="flex items-center justify-between">
-                                <div>
-                                    <span className="text-sm font-medium text-foreground block">Current Style</span>
-                                    <span className="text-xs text-muted-foreground">
-                                        {style === CarouselStyle.TWITTER ? 'Twitter' : 'Storyteller'}
-                                    </span>
-                                </div>
-                                <Button
-                                    onClick={handleConvertStyle}
-                                    size="sm"
-                                    variant="secondary"
-                                    className="bg-purple-600 hover:bg-purple-500 text-white"
+                                <Label className="text-sm font-medium">Carousel Style</Label>
+                                <Select
+                                    value={style}
+                                    onValueChange={(value) => handleConvertStyle(value as CarouselStyle)}
                                 >
-                                    Convert to {style === CarouselStyle.TWITTER ? 'Storyteller' : 'Twitter'}
-                                </Button>
+                                    <SelectTrigger className="w-[140px] h-8">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={CarouselStyle.TWITTER}>Twitter</SelectItem>
+                                        <SelectItem value={CarouselStyle.STORYTELLER}>Storyteller</SelectItem>
+                                        <SelectItem value={CarouselStyle.LESSON}>Lesson</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                     )}
@@ -1640,6 +1658,74 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                         />
                     </div>
 
+                    {/* Layout Settings */}
+                    <div className="mb-4 p-3 bg-secondary rounded-lg">
+                        <Label className="text-sm font-medium mb-3 block">Layout</Label>
+
+                        {/* Content Padding */}
+                        <div className="mb-3">
+                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                <span>Content Padding</span>
+                                <span>{layoutSettings.contentPadding}px</span>
+                            </div>
+                            <Slider
+                                value={[layoutSettings.contentPadding]}
+                                min={32}
+                                max={96}
+                                step={4}
+                                onValueChange={(value) => setLayoutSettings(prev => ({ ...prev, contentPadding: value[0] }))}
+                            />
+                        </div>
+
+                        {/* Line Height */}
+                        <div className="mb-3">
+                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                <span>Line Height</span>
+                                <span>{layoutSettings.textLineHeight.toFixed(1)}</span>
+                            </div>
+                            <Slider
+                                value={[layoutSettings.textLineHeight]}
+                                min={1.2}
+                                max={2.0}
+                                step={0.1}
+                                onValueChange={(value) => setLayoutSettings(prev => ({ ...prev, textLineHeight: value[0] }))}
+                            />
+                        </div>
+
+                        {/* Paragraph Gap */}
+                        <div className="mb-3">
+                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                <span>Paragraph Gap</span>
+                                <span>{layoutSettings.paragraphGap.toFixed(2)}rem</span>
+                            </div>
+                            <Slider
+                                value={[layoutSettings.paragraphGap]}
+                                min={0.5}
+                                max={2.0}
+                                step={0.25}
+                                onValueChange={(value) => setLayoutSettings(prev => ({ ...prev, paragraphGap: value[0] }))}
+                            />
+                        </div>
+
+                        {/* Text Alignment */}
+                        <div>
+                            <div className="text-xs text-muted-foreground mb-1">Text Alignment</div>
+                            <div className="flex gap-1">
+                                {(['left', 'center', 'right'] as TextAlignment[]).map((align) => (
+                                    <Button
+                                        key={align}
+                                        variant={layoutSettings.textAlignment === align ? 'default' : 'outline'}
+                                        size="sm"
+                                        className="flex-1 text-xs capitalize"
+                                        onClick={() => setLayoutSettings(prev => ({ ...prev, textAlignment: align }))}
+                                    >
+                                        {align}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Global Image Style */}
                     <div className="mb-4 p-3 bg-secondary rounded-lg">
                         <div className="flex items-center justify-between mb-2">
@@ -1748,6 +1834,75 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                             <Zap className="h-4 w-4" />
                         )}
                     </Button>
+                </div>
+
+                {/* Per-Slide Theme Override */}
+                <div className="mb-4 p-3 bg-secondary/50 rounded-lg border border-border">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-muted-foreground">Slide Theme</span>
+                            <Button
+                                variant="link"
+                                size="sm"
+                                onClick={() => {
+                                    const newSlides = [...slides];
+                                    newSlides[activeIndex] = { ...activeSlide, theme: undefined };
+                                    onUpdateSlides(newSlides);
+                                }}
+                                className="text-xs text-muted-foreground hover:text-foreground p-0 h-auto"
+                                title="Reset to global theme"
+                            >
+                                Reset
+                            </Button>
+                        </div>
+                        <div className="flex bg-secondary rounded-lg p-1">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    const newSlides = [...slides];
+                                    newSlides[activeIndex] = { ...activeSlide, theme: undefined };
+                                    onUpdateSlides(newSlides);
+                                }}
+                                className={cn(
+                                    "flex-1 px-2 py-1 text-[10px] font-bold",
+                                    !activeSlide.theme ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+                                )}
+                            >
+                                Global
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    const newSlides = [...slides];
+                                    newSlides[activeIndex] = { ...activeSlide, theme: 'LIGHT' };
+                                    onUpdateSlides(newSlides);
+                                }}
+                                className={cn(
+                                    "flex-1 px-2 py-1 text-[10px] font-bold",
+                                    activeSlide.theme === 'LIGHT' ? 'bg-white text-black shadow' : 'text-muted-foreground hover:text-foreground'
+                                )}
+                            >
+                                <Sun className="h-3 w-3 mr-1" />
+                                Light
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    const newSlides = [...slides];
+                                    newSlides[activeIndex] = { ...activeSlide, theme: 'DARK' };
+                                    onUpdateSlides(newSlides);
+                                }}
+                                className={cn(
+                                    "flex-1 px-2 py-1 text-[10px] font-bold",
+                                    activeSlide.theme === 'DARK' ? 'bg-black text-white shadow' : 'text-muted-foreground hover:text-foreground'
+                                )}
+                            >
+                                <Moon className="h-3 w-3 mr-1" />
+                                Dark
+                            </Button>
+                        </div>
                 </div>
 
                 {/* Per-Slide Font Override */}
@@ -1859,6 +2014,127 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                     </div>
                 </div>
 
+                {/* Per-Slide Layout Override */}
+                <div className="mb-4 p-3 bg-secondary/50 rounded-lg border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-muted-foreground">Slide Layout Override</span>
+                        <Button
+                            variant="link"
+                            size="sm"
+                            onClick={() => {
+                                const newSlides = [...slides];
+                                newSlides[activeIndex] = {
+                                    ...activeSlide,
+                                    contentPadding: undefined,
+                                    textLineHeight: undefined,
+                                    paragraphGap: undefined
+                                };
+                                onUpdateSlides(newSlides);
+                            }}
+                            className="text-xs text-muted-foreground hover:text-foreground p-0 h-auto"
+                            title="Reset to global settings"
+                        >
+                            Reset
+                        </Button>
+                    </div>
+
+                    {/* Per-Slide Content Padding */}
+                    <div className="mb-2">
+                        <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>Padding</span>
+                            <span>{activeSlide.contentPadding !== undefined ? `${activeSlide.contentPadding}px` : 'Global'}</span>
+                        </div>
+                        <Slider
+                            value={[activeSlide.contentPadding ?? layoutSettings.contentPadding]}
+                            min={32}
+                            max={96}
+                            step={4}
+                            onValueChange={(value) => {
+                                const newSlides = [...slides];
+                                newSlides[activeIndex] = { ...activeSlide, contentPadding: value[0] };
+                                onUpdateSlides(newSlides);
+                            }}
+                        />
+                    </div>
+
+                    {/* Per-Slide Line Height */}
+                    <div className="mb-2">
+                        <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>Line Height</span>
+                            <span>{activeSlide.textLineHeight !== undefined ? activeSlide.textLineHeight.toFixed(1) : 'Global'}</span>
+                        </div>
+                        <Slider
+                            value={[activeSlide.textLineHeight ?? layoutSettings.textLineHeight]}
+                            min={1.2}
+                            max={2.0}
+                            step={0.1}
+                            onValueChange={(value) => {
+                                const newSlides = [...slides];
+                                newSlides[activeIndex] = { ...activeSlide, textLineHeight: value[0] };
+                                onUpdateSlides(newSlides);
+                            }}
+                        />
+                    </div>
+
+                    {/* Per-Slide Paragraph Gap */}
+                    <div className="mb-2">
+                        <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>Paragraph Gap</span>
+                            <span>{activeSlide.paragraphGap !== undefined ? `${activeSlide.paragraphGap.toFixed(2)}rem` : 'Global'}</span>
+                        </div>
+                        <Slider
+                            value={[activeSlide.paragraphGap ?? layoutSettings.paragraphGap]}
+                            min={0.5}
+                            max={2.0}
+                            step={0.25}
+                            onValueChange={(value) => {
+                                const newSlides = [...slides];
+                                newSlides[activeIndex] = { ...activeSlide, paragraphGap: value[0] };
+                                onUpdateSlides(newSlides);
+                            }}
+                        />
+                    </div>
+
+                    {/* Per-Slide Text Alignment */}
+                    <div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>Text Alignment</span>
+                            <span>{activeSlide.textAlignment !== undefined ? activeSlide.textAlignment : 'Global'}</span>
+                        </div>
+                        <div className="flex gap-1">
+                            {(['left', 'center', 'right'] as TextAlignment[]).map((align) => (
+                                <Button
+                                    key={align}
+                                    variant={(activeSlide.textAlignment ?? layoutSettings.textAlignment) === align ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="flex-1 text-[10px] capitalize h-7"
+                                    onClick={() => {
+                                        const newSlides = [...slides];
+                                        newSlides[activeIndex] = { ...activeSlide, textAlignment: align };
+                                        onUpdateSlides(newSlides);
+                                    }}
+                                >
+                                    {align}
+                                </Button>
+                            ))}
+                        </div>
+                        {activeSlide.textAlignment !== undefined && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full text-[10px] mt-1 h-6"
+                                onClick={() => {
+                                    const newSlides = [...slides];
+                                    newSlides[activeIndex] = { ...activeSlide, textAlignment: undefined };
+                                    onUpdateSlides(newSlides);
+                                }}
+                            >
+                                Reset to Global
+                            </Button>
+                        )}
+                    </div>
+                </div>
+
                 {/* ================================================================
                     BACKGROUND IMAGE SECTION
                     Full-bleed background with color overlay - separate from illustration
@@ -1962,7 +2238,113 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                                 </div>
                             )}
 
-                            {/* Overlay Color Picker */}
+                            {/* Overlay/Split Mode Toggle (Lesson Cover Only) */}
+                            {style === CarouselStyle.LESSON && activeSlide.type === SlideType.COVER && activeSlide.backgroundImageUrl && (
+                                <>
+                                <div className="flex items-center justify-between py-2 border-y border-border">
+                                    <div>
+                                        <span className="text-xs font-medium">Image Mode</span>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            {activeSlide.overlayImage !== false ? 'Gradient overlay' : 'Split screen'}
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleToggleOverlay(true)}
+                                            className={cn(
+                                                "px-2 py-1 text-[10px] h-auto",
+                                                activeSlide.overlayImage !== false
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'bg-secondary text-muted-foreground hover:text-foreground'
+                                            )}
+                                        >
+                                            Overlay
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleToggleOverlay(false)}
+                                            className={cn(
+                                                "px-2 py-1 text-[10px] h-auto",
+                                                activeSlide.overlayImage === false
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'bg-secondary text-muted-foreground hover:text-foreground'
+                                            )}
+                                        >
+                                            Split
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Fade Controls (Lesson Cover Overlay Mode) */}
+                                {activeSlide.overlayImage !== false && (
+                                    <div className="pt-3 space-y-3">
+                                        {/* Text Position Slider */}
+                                        <div>
+                                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                                <span>Text Position</span>
+                                                <span>{activeSlide.imageOffsetY !== undefined ? activeSlide.imageOffsetY : 50}%</span>
+                                            </div>
+                                            <Slider
+                                                value={[activeSlide.imageOffsetY !== undefined ? activeSlide.imageOffsetY : 50]}
+                                                min={0}
+                                                max={70}
+                                                step={5}
+                                                onValueChange={(value) => handleImageOffsetChange(value[0])}
+                                            />
+                                            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                                                <span>Top</span>
+                                                <span>Bottom</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Fade Position Slider */}
+                                        <div>
+                                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                                <span>Fade Position</span>
+                                                <span>{activeSlide.imageScale || 50}%</span>
+                                            </div>
+                                            <Slider
+                                                value={[activeSlide.imageScale || 50]}
+                                                min={0}
+                                                max={80}
+                                                step={5}
+                                                onValueChange={(value) => handleImageScaleChange(value[0])}
+                                            />
+                                            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                                                <span>Top</span>
+                                                <span>Bottom</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Fade Opacity Slider */}
+                                        <div>
+                                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                                <span>Fade Opacity</span>
+                                                <span>{activeSlide.backgroundOverlayOpacity !== undefined ? activeSlide.backgroundOverlayOpacity : 100}%</span>
+                                            </div>
+                                            <Slider
+                                                value={[activeSlide.backgroundOverlayOpacity !== undefined ? activeSlide.backgroundOverlayOpacity : 100]}
+                                                min={0}
+                                                max={100}
+                                                step={5}
+                                                onValueChange={(value) => {
+                                                    const newSlides = [...slides];
+                                                    newSlides[activeIndex] = { ...activeSlide, backgroundOverlayOpacity: value[0] };
+                                                    onUpdateSlides(newSlides);
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                                </>
+                            )}
+
+                            {/* Overlay Color Picker and Opacity (not for Lesson cover slides) */}
+                            {(style !== CarouselStyle.LESSON || (style === CarouselStyle.LESSON && activeSlide.type !== SlideType.COVER)) && (
+                            <>
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-muted-foreground">Overlay Color</span>
                                 <div className="flex items-center gap-2">
@@ -2009,6 +2391,39 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                                     }}
                                 />
                             </div>
+                            </>
+                            )}
+
+                            {/* Background Text Color (only shown when background image is set) */}
+                            {activeSlide.backgroundImageUrl && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">Text Color</span>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="color"
+                                            value={activeSlide.backgroundTextColor || (theme === 'DARK' ? '#FFFFFF' : '#000000')}
+                                            onChange={(e) => {
+                                                const newSlides = [...slides];
+                                                newSlides[activeIndex] = { ...activeSlide, backgroundTextColor: e.target.value };
+                                                onUpdateSlides(newSlides);
+                                            }}
+                                            className="w-8 h-8 rounded cursor-pointer border border-border"
+                                        />
+                                        <Button
+                                            variant="link"
+                                            size="sm"
+                                            onClick={() => {
+                                                const newSlides = [...slides];
+                                                newSlides[activeIndex] = { ...activeSlide, backgroundTextColor: undefined };
+                                                onUpdateSlides(newSlides);
+                                            }}
+                                            className="text-[10px] text-muted-foreground hover:text-foreground p-0 h-auto"
+                                        >
+                                            Reset
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -2093,6 +2508,48 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                                         Top
                                     </Button>
                                 </div>
+
+                                {/* Image-Text Spacing (Twitter image-after-title only) */}
+                                {activeSlide.contentLayout === 'image-after-title' && (
+                                    <div className="mt-3 pt-3 border-t border-border">
+                                        <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                                            <span>Image-Text Spacing</span>
+                                            <span>{activeSlide.imageTextSpacing ?? 16}px</span>
+                                        </div>
+                                        <Slider
+                                            value={[activeSlide.imageTextSpacing ?? 16]}
+                                            min={0}
+                                            max={64}
+                                            step={4}
+                                            onValueChange={(value) => {
+                                                const newSlides = [...slides];
+                                                newSlides[activeIndex] = { ...activeSlide, imageTextSpacing: value[0] };
+                                                onUpdateSlides(newSlides);
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Image-Text Spacing (Lesson content slides with image) */}
+                        {style === CarouselStyle.LESSON && activeSlide.type !== SlideType.COVER && activeSlide.showImage && (
+                            <div className="mb-4 pb-4 border-b border-border">
+                                <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                                    <span>Image-Text Spacing</span>
+                                    <span>{activeSlide.imageTextSpacing ?? 16}px</span>
+                                </div>
+                                <Slider
+                                    value={[activeSlide.imageTextSpacing ?? 16]}
+                                    min={0}
+                                    max={64}
+                                    step={4}
+                                    onValueChange={(value) => {
+                                        const newSlides = [...slides];
+                                        newSlides[activeIndex] = { ...activeSlide, imageTextSpacing: value[0] };
+                                        onUpdateSlides(newSlides);
+                                    }}
+                                />
                             </div>
                         )}
 
@@ -2239,8 +2696,9 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                                     </div>
                                 </div>
 
-                                {/* Gradient Height Slider (Storyteller Overlay Only) */}
-                                {style === CarouselStyle.STORYTELLER && activeSlide.overlayImage !== false && (
+                                {/* Gradient Height Slider (Storyteller Overlay or Lesson Cover Overlay) */}
+                                {((style === CarouselStyle.STORYTELLER && activeSlide.overlayImage !== false) ||
+                                  (style === CarouselStyle.LESSON && activeSlide.type === SlideType.COVER && activeSlide.showBackgroundImage && activeSlide.overlayImage !== false)) && (
                                      <div>
                                         <div className="flex justify-between text-xs text-muted-foreground mb-1">
                                             <span>Overlay Fade Height</span>
@@ -2254,6 +2712,53 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                                             onValueChange={(value) => handleGradientHeightChange(value[0])}
                                         />
                                     </div>
+                                )}
+
+                                {/* Image Canvas Offset (Twitter Only) - allows overflow beyond slide boundaries */}
+                                {style === CarouselStyle.TWITTER && (
+                                    <>
+                                        <div>
+                                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                                <span>Canvas Position</span>
+                                                <span>{activeSlide.imageCanvasOffset ?? layoutSettings.imageCanvasOffset}px</span>
+                                            </div>
+                                            <Slider
+                                                value={[activeSlide.imageCanvasOffset ?? layoutSettings.imageCanvasOffset]}
+                                                min={-200}
+                                                max={200}
+                                                step={10}
+                                                onValueChange={(value) => {
+                                                    const newSlides = [...slides];
+                                                    newSlides[activeIndex] = { ...activeSlide, imageCanvasOffset: value[0] };
+                                                    onUpdateSlides(newSlides);
+                                                }}
+                                            />
+                                            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                                                <span>Up (overflow)</span>
+                                                <span>Default</span>
+                                                <span>Down (overflow)</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Image Margin (Twitter Only) */}
+                                        <div>
+                                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                                <span>Image Margin</span>
+                                                <span>{activeSlide.imageMargin ?? layoutSettings.imageMargin}px</span>
+                                            </div>
+                                            <Slider
+                                                value={[activeSlide.imageMargin ?? layoutSettings.imageMargin]}
+                                                min={0}
+                                                max={32}
+                                                step={4}
+                                                onValueChange={(value) => {
+                                                    const newSlides = [...slides];
+                                                    newSlides[activeIndex] = { ...activeSlide, imageMargin: value[0] };
+                                                    onUpdateSlides(newSlides);
+                                                }}
+                                            />
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         )}

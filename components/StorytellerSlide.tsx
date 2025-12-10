@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { Slide, Profile, Theme, FontStyle } from '../types';
+import { Slide, Profile, Theme, FontStyle, LayoutSettings, TextAlignment } from '../types';
 
 interface StorytellerSlideProps {
   slide: Slide;
@@ -29,6 +29,7 @@ interface StorytellerSlideProps {
   accentColor?: string;      // Highlight color for __underlined__ text and bullets
   fontStyle?: FontStyle;     // Global font style (can be overridden by slide)
   fontScale?: number;        // Global font scale (can be overridden by slide)
+  layoutSettings?: LayoutSettings; // Global layout settings (can be overridden by slide)
 }
 
 // ============================================================================
@@ -88,35 +89,53 @@ const parseInline = (text: string, theme: Theme, accentColor?: string) => {
   });
 };
 
-const renderMarkdown = (text: string, theme: Theme, accentColor?: string, fontScale: number = 1.0) => {
+const renderMarkdown = (
+  text: string,
+  theme: Theme,
+  accentColor?: string,
+  fontScale: number = 1.0,
+  lineHeight: number = 1.5,
+  paragraphGap: number = 1,
+  textColorOverride?: string,
+  textAlignment: TextAlignment = 'left'
+) => {
   const lines = text.split('\n');
-  const textColor = theme === 'DARK' ? 'text-gray-100' : 'text-gray-900';
+  const textColor = textColorOverride || (theme === 'DARK' ? '#F3F4F6' : '#111827');
+  const headingColor = textColorOverride || (theme === 'DARK' ? '#FFFFFF' : '#000000');
 
   // Use accent color for bullets/numbers if provided. Otherwise generic color.
-  const bulletStyle = accentColor ? { color: accentColor } : { color: theme === 'DARK' ? '#cbd5e1' : '#475569' };
+  const bulletStyle = accentColor
+    ? { color: accentColor }
+    : { color: textColorOverride || (theme === 'DARK' ? '#cbd5e1' : '#475569') };
 
   // Base font sizes in pixels (for 1080px width), then multiplied by fontScale
   const h1Size = 72 * fontScale;
   const h2Size = 48 * fontScale;
   const bodySize = 36 * fontScale;
 
+  // Paragraph spacing in pixels (rem * 16px base)
+  const paragraphSpacing = paragraphGap * 16;
+
+  // List alignment classes based on textAlignment
+  const listJustify = textAlignment === 'center' ? 'justify-center' : textAlignment === 'right' ? 'justify-end' : '';
+
   return lines.map((line, idx) => {
     const trimmed = line.trim();
 
     // Huge Headers
     if (line.startsWith('# ')) {
-      return <h1 key={idx} className={`font-black leading-none mb-8 tracking-tighter uppercase drop-shadow-sm ${textColor}`} style={{ fontSize: `${h1Size}px` }}>{parseInline(line.slice(2), theme, accentColor)}</h1>;
+      return <h1 key={idx} className="font-black tracking-tighter uppercase drop-shadow-sm" style={{ fontSize: `${h1Size}px`, lineHeight: lineHeight, marginBottom: `${paragraphSpacing}px`, color: headingColor, textAlign: textAlignment }}>{parseInline(line.slice(2), theme, accentColor)}</h1>;
     }
     if (line.startsWith('## ')) {
-      return <h2 key={idx} className={`font-extrabold leading-tight mb-6 tracking-tight ${textColor}`} style={{ fontSize: `${h2Size}px` }}>{parseInline(line.slice(3), theme, accentColor)}</h2>;
+      return <h2 key={idx} className="font-extrabold tracking-tight" style={{ fontSize: `${h2Size}px`, lineHeight: lineHeight, marginBottom: `${paragraphSpacing * 0.75}px`, color: headingColor, textAlign: textAlignment }}>{parseInline(line.slice(3), theme, accentColor)}</h2>;
     }
 
     // Lists with accent color
     if (trimmed.startsWith('- ')) {
        return (
-         <div key={idx} className="flex items-start mb-4 ml-2">
+         <div key={idx} className={`flex items-start ${textAlignment === 'left' ? 'ml-2' : ''} ${listJustify}`} style={{ marginBottom: `${paragraphSpacing * 0.5}px` }}>
             <span className="mr-4 mt-1" style={{ ...bulletStyle, fontSize: `${bodySize}px` }}>●</span>
-            <span className={`leading-tight font-medium ${textColor}`} style={{ fontSize: `${bodySize}px` }}>{parseInline(line.slice(2), theme, accentColor)}</span>
+            <span className="font-medium" style={{ fontSize: `${bodySize}px`, lineHeight: lineHeight, color: textColor }}>{parseInline(line.slice(2), theme, accentColor)}</span>
          </div>
        );
     }
@@ -124,22 +143,39 @@ const renderMarkdown = (text: string, theme: Theme, accentColor?: string, fontSc
         const number = trimmed.match(/^\d+/)?.[0];
         const content = trimmed.replace(/^\d+\. /, '');
         return (
-            <div key={idx} className="flex items-start mb-4 ml-2">
+            <div key={idx} className={`flex items-start ${textAlignment === 'left' ? 'ml-2' : ''} ${listJustify}`} style={{ marginBottom: `${paragraphSpacing * 0.5}px` }}>
                <span className="mr-4 font-black" style={{ ...bulletStyle, fontSize: `${bodySize}px` }}>{number}.</span>
-               <span className={`leading-tight font-medium ${textColor}`} style={{ fontSize: `${bodySize}px` }}>{parseInline(content, theme, accentColor)}</span>
+               <span className="font-medium" style={{ fontSize: `${bodySize}px`, lineHeight: lineHeight, color: textColor }}>{parseInline(content, theme, accentColor)}</span>
             </div>
           );
     }
 
     // Empty lines
-    if (!trimmed) return <div key={idx} className="h-6"></div>;
+    if (!trimmed) return <div key={idx} style={{ height: `${paragraphSpacing * 0.5}px` }}></div>;
 
     // Body Text
-    return <p key={idx} className={`leading-snug mb-6 font-medium ${textColor}`} style={{ fontSize: `${bodySize}px` }}>{parseInline(line, theme, accentColor)}</p>;
+    return <p key={idx} className="font-medium" style={{ fontSize: `${bodySize}px`, lineHeight: lineHeight, marginBottom: `${paragraphSpacing}px`, color: textColor, textAlign: textAlignment }}>{parseInline(line, theme, accentColor)}</p>;
   });
 };
 
-const StorytellerSlide: React.FC<StorytellerSlideProps> = ({ slide, profile, index, total, showSlideNumbers, headerScale = 1.0, theme, forExport = false, showVerifiedBadge = true, accentColor, fontStyle = 'MODERN', fontScale = 1.0 }) => {
+const StorytellerSlide: React.FC<StorytellerSlideProps> = ({ slide, profile, index, total, showSlideNumbers, headerScale = 1.0, theme, forExport = false, showVerifiedBadge = true, accentColor, fontStyle = 'MODERN', fontScale = 1.0, layoutSettings }) => {
+
+  // ============================================================================
+  // DEFAULT LAYOUT SETTINGS
+  // ============================================================================
+  const defaultLayoutSettings: LayoutSettings = {
+    contentPadding: 64,
+    imageCanvasOffset: 0,
+    imageMargin: 0,
+    textLineHeight: 1.5,
+    paragraphGap: 1,
+  };
+
+  // EFFECTIVE LAYOUT VALUES (per-slide override > global > default)
+  const effectiveContentPadding = slide.contentPadding ?? layoutSettings?.contentPadding ?? defaultLayoutSettings.contentPadding;
+  const effectiveLineHeight = slide.textLineHeight ?? layoutSettings?.textLineHeight ?? defaultLayoutSettings.textLineHeight;
+  const effectiveParagraphGap = slide.paragraphGap ?? layoutSettings?.paragraphGap ?? defaultLayoutSettings.paragraphGap;
+  const effectiveTextAlignment = slide.textAlignment ?? layoutSettings?.textAlignment ?? 'left';
 
   // ============================================================================
   // LAYOUT MODE DETERMINATION
@@ -161,6 +197,10 @@ const StorytellerSlide: React.FC<StorytellerSlideProps> = ({ slide, profile, ind
   const showBackground = slide.showBackgroundImage && slide.backgroundImageUrl;
   const bgOverlayColor = slide.backgroundOverlayColor || (theme === 'DARK' ? '#000000' : '#FFFFFF');
   const bgOverlayOpacity = slide.backgroundOverlayOpacity !== undefined ? slide.backgroundOverlayOpacity : 50;
+  const bgTextColor = slide.backgroundTextColor; // Custom text color for background image mode
+
+  // Text color override when background image is set
+  const textColorOverride = showBackground && bgTextColor ? bgTextColor : undefined;
 
   // FONT SETTINGS:
   // Per-slide settings override global settings
@@ -291,16 +331,18 @@ const StorytellerSlide: React.FC<StorytellerSlideProps> = ({ slide, profile, ind
       )}
 
       {/* --- TEXT CONTENT --- */}
-      <div 
-        className={`flex-1 flex flex-col min-h-0 z-10 px-16 pb-32 relative ${showSplit ? '' : 'justify-center'}`}
-        style={{ 
+      <div
+        className={`flex-1 flex flex-col min-h-0 z-10 pb-32 relative ${showSplit ? '' : 'justify-center'}`}
+        style={{
             height: showSplit ? `${splitTextHeight}%` : '100%',
-            paddingTop: isOverlay && slide.imageUrl ? `${overlayTextPaddingTop}%` : (showSplit ? '3rem' : '0')
+            paddingTop: isOverlay && slide.imageUrl ? `${overlayTextPaddingTop}%` : (showSplit ? '3rem' : '0'),
+            paddingLeft: `${effectiveContentPadding}px`,
+            paddingRight: `${effectiveContentPadding}px`
         }}
       >
           <div className="w-full h-full overflow-hidden flex flex-col">
                <div className={`flex-1 w-full overflow-y-auto pr-4 no-scrollbar ${!showSplit && 'flex flex-col justify-center'}`}>
-                    {renderMarkdown(slide.content, theme, accentColor, effectiveFontScale)}
+                    {renderMarkdown(slide.content, theme, accentColor, effectiveFontScale, effectiveLineHeight, effectiveParagraphGap, textColorOverride, effectiveTextAlignment)}
                </div>
           </div>
       </div>

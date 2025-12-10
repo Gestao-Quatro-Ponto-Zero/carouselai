@@ -114,7 +114,7 @@ const App: React.FC = () => {
 
   // --- Step 1: Select Format ---
   const handleFormatSelect = (selectedStyle: CarouselStyle) => {
-    if (selectedStyle === CarouselStyle.TWITTER || selectedStyle === CarouselStyle.STORYTELLER) {
+    if (selectedStyle === CarouselStyle.TWITTER || selectedStyle === CarouselStyle.STORYTELLER || selectedStyle === CarouselStyle.LESSON) {
       setStyle(selectedStyle);
       setStep('ASPECT_RATIO_SELECT');
     } else {
@@ -342,7 +342,7 @@ const App: React.FC = () => {
                     </div>
 
                     <h2 className="text-xl font-semibold text-center">Choose a Style</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <button
                             onClick={() => handleFormatSelect(CarouselStyle.TWITTER)}
                             className="p-6 border-2 border-primary/50 bg-primary/5 rounded-xl text-left hover:shadow-lg hover:border-primary transition-all group"
@@ -358,6 +358,14 @@ const App: React.FC = () => {
                             <div className="w-10 h-10 bg-muted text-foreground rounded-full flex items-center justify-center mb-4 text-xl font-bold">📷</div>
                             <h3 className="font-bold group-hover:text-primary">Storyteller</h3>
                             <p className="text-sm text-muted-foreground mt-1">Image-first, bold typography, cinematic overlays. High impact.</p>
+                        </button>
+                        <button
+                            onClick={() => handleFormatSelect(CarouselStyle.LESSON)}
+                            className="p-6 border-2 border-muted bg-muted/30 rounded-xl text-left hover:shadow-lg hover:border-primary/50 transition-all group"
+                        >
+                            <div className="w-10 h-10 bg-muted text-foreground rounded-full flex items-center justify-center mb-4 text-xl font-bold">📚</div>
+                            <h3 className="font-bold group-hover:text-primary">Lesson</h3>
+                            <p className="text-sm text-muted-foreground mt-1">Educational content with cover image, centered footer. Black or white slides.</p>
                         </button>
                     </div>
                 </div>
