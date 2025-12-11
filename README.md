@@ -58,6 +58,12 @@ CarouselAI helps content creators, marketers, and social media managers build pr
 - **CSS Variables** - Consistent theming with HSL color system
 - **Red Accent Color** - Primary accent `#dc2626` for buttons and interactive elements
 
+### Slide Management
+
+- **Drag-and-Drop Reordering** - Reorder slides by dragging them in the sidebar
+- **Duplicate Slides** - Copy any slide with all its content and settings
+- **Add/Delete Slides** - Easily add new slides or remove existing ones
+
 ### Rich Customization Options
 
 - **Light & Dark Slide Themes** - Match your brand or preference for the carousel output
@@ -172,6 +178,7 @@ CarouselAI helps content creators, marketers, and social media managers build pr
 - **Google Gemini AI** - Content and image generation
 - **html-to-image** - PNG export
 - **lucide-react** - Modern icon library
+- **@dnd-kit** - Drag-and-drop functionality
 
 ## Scripts
 

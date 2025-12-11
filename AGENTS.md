@@ -20,6 +20,7 @@ npm run preview      # Preview production build
 - lucide-react (icons)
 - Google Gemini AI (@google/genai)
 - html-to-image for PNG export
+- @dnd-kit/core, @dnd-kit/sortable (drag-and-drop)
 
 ## Structure
 
@@ -29,7 +30,7 @@ index.css                   # Tailwind base + CSS variables for theming
 tailwind.config.js          # Extended Tailwind config with shadcn colors
 lib/utils.ts                # cn() utility for conditional classes
 components/
-  Workspace.tsx             # Main editor, export logic
+  Workspace.tsx             # Main editor, export, slide management (drag-and-drop, duplicate)
   TwitterSlide.tsx          # Twitter template
   StorytellerSlide.tsx      # Storyteller template
   ui/                       # shadcn/ui components
@@ -127,6 +128,28 @@ const dataUrl = await window.htmlToImage.toPng(element, {
 ```
 
 No special handling needed - captures actual rendered pixels.
+
+## Slide Management
+
+```tsx
+// Drag-and-drop reordering with @dnd-kit
+import { DndContext, closestCenter } from '@dnd-kit/core';
+import { SortableContext, useSortable, arrayMove } from '@dnd-kit/sortable';
+
+// Wrap slide list
+<DndContext onDragEnd={handleDragEnd}>
+  <SortableContext items={slides.map(s => s.id)}>
+    {slides.map(slide => <SortableSlideItem key={slide.id} />)}
+  </SortableContext>
+</DndContext>
+
+// Duplicate slide
+const handleDuplicateSlide = (slideId: string) => {
+  const slide = slides.find(s => s.id === slideId);
+  const duplicate = { ...slide, id: crypto.randomUUID() };
+  // Insert after original
+};
+```
 
 ## AI Integration
 

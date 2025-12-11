@@ -13,6 +13,7 @@ CarouselAI is an Instagram carousel creator that uses Google Gemini AI for conte
 - **lucide-react** - Icon library
 - **Google Gemini AI** (`@google/genai`) for text and image generation
 - **html-to-image** for PNG export (captures rendered DOM)
+- **@dnd-kit** (`@dnd-kit/core`, `@dnd-kit/sortable`) for drag-and-drop slide reordering
 
 ## Commands
 
@@ -57,7 +58,7 @@ npm run preview      # Preview production build
 
 ## Key Files to Understand
 
-- **`Workspace.tsx`** - The main editor component. Contains slide management, image generation, export functionality, and all sidebar controls. Also handles background image generation, layout ordering, and style conversion.
+- **`Workspace.tsx`** - The main editor component. Contains slide management (add, delete, duplicate, reorder via drag-and-drop), image generation, export functionality, and all sidebar controls. Also handles background image generation, layout ordering, and style conversion.
 - **`geminiService.ts`** - Handles all Gemini API calls. Exports `generateCarouselContent`, `generateSlideImage`, `stylizeImage`, `editImage`, `refineCarouselContent`, `processDocument`.
 - **`types.ts`** - All TypeScript types. Key types: `Slide`, `Profile`, `CarouselStyle`, `Theme`, `AspectRatio`, `FontStyle`, `ContentLayout`, `UploadedDocument`, `CarouselProject`.
 
@@ -102,6 +103,11 @@ npm run preview      # Preview production build
   - Z-index layers: background (z-0) → overlay (z-1) → illustration (z-2) → content (z-10)
   - Customizable overlay color and opacity (0-100%)
   - AI generation with custom prompts or auto-generated from slide content
+
+### Slide Management
+- **Drag-and-drop reordering**: Uses @dnd-kit with `DndContext`, `SortableContext`, and `useSortable` hook
+- **Duplicate slide**: Creates a deep copy with new UUID, inserted after original
+- **Delete slide**: Removes slide and selects first remaining slide if active was deleted
 
 ## Important Constraints
 
