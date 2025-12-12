@@ -31,6 +31,7 @@ CarouselAI helps content creators, marketers, and social media managers build pr
 - **Gemini 3 Pro Integration** - Uses Google's latest AI model for high-quality content
 - **Document Upload** - Upload PDF, TXT, or Markdown files to generate carousels from existing content
 - **YouTube URL Support** - Paste a YouTube URL to generate carousels from video content (public videos only)
+- **Instagram URL Support** - Paste Instagram post/reel URLs to generate carousels from Instagram content (requires Apify API token)
 - **Automatic Slide Structuring** - Generates 5-10 slides with proper flow (hook, content, CTA)
 - **Smart Slide Types** - Creates Cover slides, Content slides, and Call-to-Action slides
 - **Image Prompt Suggestions** - AI suggests relevant image prompts for each slide
@@ -118,11 +119,13 @@ CarouselAI helps content creators, marketers, and social media managers build pr
    npm install
    ```
 
-3. **Set up your API key** (choose one method)
+3. **Set up your API keys** (choose one method)
 
    **Option A: In-app configuration (recommended)**
 
-   Simply launch the app and enter your API key in the UI - it will be saved to your browser's local storage.
+   Simply launch the app and enter your API keys in the UI - they will be saved to your browser's local storage.
+   - **Gemini API Key** (required) - For AI content and image generation
+   - **Apify API Token** (optional) - For Instagram post/reel scraping
 
    **Option B: Environment file**
 
@@ -130,6 +133,7 @@ CarouselAI helps content creators, marketers, and social media managers build pr
    ```
    API_KEY=your_gemini_api_key_here
    ```
+   Note: Apify API token can only be configured in the app UI.
 
 4. **Start the development server**
    ```bash

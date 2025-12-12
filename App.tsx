@@ -18,7 +18,8 @@
 import React, { useState, useEffect } from 'react';
 import { AppStep, CarouselStyle, Profile, Slide, SlideType, AspectRatio, UploadedDocument } from './types';
 import { MOCK_SLIDES, DEFAULT_AVATAR } from './constants';
-import { generateCarouselContent, processDocument, TEXT_MODEL_PRO, TEXT_MODEL_PRO_2_5, TEXT_MODEL_FLASH, setApiKey, getApiKeyMasked, hasApiKey } from './services/geminiService';
+import { generateCarouselContent, processDocument, TEXT_MODEL_PRO, TEXT_MODEL_FLASH, setApiKey, getApiKeyMasked, hasApiKey } from './services/geminiService';
+import { setApifyApiKey, getApifyApiKeyMasked, hasApifyApiKey } from './services/instagramService';
 import Workspace from './components/Workspace';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,6 +78,12 @@ const App: React.FC = () => {
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyDisplay, setApiKeyDisplay] = useState('');
 
+  // Apify API key (for Instagram scraping)
+  const [apifyKeyInput, setApifyKeyInput] = useState('');
+  const [apifyKeyConfigured, setApifyKeyConfigured] = useState(false);
+  const [showApifyKeyInput, setShowApifyKeyInput] = useState(false);
+  const [apifyKeyDisplay, setApifyKeyDisplay] = useState('');
+
   // ============================================================================
   // EDITOR THEME (light/dark mode for the editor UI)
   // ============================================================================
@@ -95,11 +102,17 @@ const App: React.FC = () => {
     setEditorTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  // Check if API key is already configured on mount
+  // Check if API keys are already configured on mount
   useEffect(() => {
-    const configured = hasApiKey();
-    setApiKeyConfigured(configured);
+    // Gemini API key
+    const geminiConfigured = hasApiKey();
+    setApiKeyConfigured(geminiConfigured);
     setApiKeyDisplay(getApiKeyMasked());
+
+    // Apify API key
+    const apifyConfigured = hasApifyApiKey();
+    setApifyKeyConfigured(apifyConfigured);
+    setApifyKeyDisplay(getApifyApiKeyMasked());
   }, []);
 
   const handleSaveApiKey = () => {
@@ -109,6 +122,16 @@ const App: React.FC = () => {
       setApiKeyDisplay(getApiKeyMasked());
       setApiKeyInput('');
       setShowApiKeyInput(false);
+    }
+  };
+
+  const handleSaveApifyKey = () => {
+    if (apifyKeyInput.trim()) {
+      setApifyApiKey(apifyKeyInput.trim());
+      setApifyKeyConfigured(true);
+      setApifyKeyDisplay(getApifyApiKeyMasked());
+      setApifyKeyInput('');
+      setShowApifyKeyInput(false);
     }
   };
 
@@ -341,6 +364,54 @@ const App: React.FC = () => {
                         )}
                     </div>
 
+                    {/* Apify API Key Configuration (for Instagram) */}
+                    <div className="bg-muted/50 border border-border rounded-xl p-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Key className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm font-medium">Apify API Token <span className="text-muted-foreground font-normal">(Instagram)</span></p>
+                                    {apifyKeyConfigured ? (
+                                        <p className="text-xs text-green-600">Configured: {apifyKeyDisplay}</p>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground">Optional - for Instagram URL scraping</p>
+                                    )}
+                                </div>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowApifyKeyInput(!showApifyKeyInput)}
+                            >
+                                {showApifyKeyInput ? 'Cancel' : (apifyKeyConfigured ? 'Change' : 'Setup')}
+                            </Button>
+                        </div>
+
+                        {showApifyKeyInput && (
+                            <div className="mt-3 pt-3 border-t border-border">
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="password"
+                                        value={apifyKeyInput}
+                                        onChange={(e) => setApifyKeyInput(e.target.value)}
+                                        placeholder="Enter your Apify API token"
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSaveApifyKey()}
+                                        className="flex-1"
+                                    />
+                                    <Button
+                                        onClick={handleSaveApifyKey}
+                                        disabled={!apifyKeyInput.trim()}
+                                    >
+                                        Save
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-2">
+                                    Get your API token from <a href="https://console.apify.com/account/integrations" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Apify Console</a>
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
                     <h2 className="text-xl font-semibold text-center">Choose a Style</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <button
@@ -511,7 +582,7 @@ const App: React.FC = () => {
                             value={aiTopic}
                             onChange={(e) => setAiTopic(e.target.value)}
                             className="h-28 resize-none"
-                            placeholder="Enter a topic, paste a URL, or describe what you want to create..."
+                            placeholder="Enter a topic, paste a YouTube or Instagram URL, or describe what you want to create..."
                         />
                     </div>
 
@@ -596,7 +667,6 @@ const App: React.FC = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value={TEXT_MODEL_PRO}>Gemini 3 Pro (Best)</SelectItem>
-                                    <SelectItem value={TEXT_MODEL_PRO_2_5}>Gemini 2.5 Pro (Balanced)</SelectItem>
                                     <SelectItem value={TEXT_MODEL_FLASH}>Gemini 2.5 Flash (Fast)</SelectItem>
                                 </SelectContent>
                             </Select>

@@ -21,6 +21,7 @@ npm run preview      # Preview production build
 - Google Gemini AI (@google/genai)
 - html-to-image for PNG export
 - @dnd-kit/core, @dnd-kit/sortable (drag-and-drop)
+- Apify REST API (Instagram scraping, browser-compatible)
 
 ## Structure
 
@@ -37,7 +38,9 @@ components/
     button.tsx, input.tsx, textarea.tsx, label.tsx,
     switch.tsx, slider.tsx, select.tsx, card.tsx,
     toggle.tsx, toggle-group.tsx
-services/geminiService.ts   # Gemini API calls
+services/
+  geminiService.ts          # Gemini API calls
+  instagramService.ts       # Instagram scraping via Apify
 types.ts                    # TypeScript interfaces
 ```
 
@@ -171,8 +174,8 @@ await refineCarouselContent(slides, feedback, model);
 ```
 
 Models:
-- Text: `gemini-2.5-pro-preview-05-06`, `gemini-2.0-flash`
-- Image: `gemini-2.0-flash-exp-image-generation`
+- Text: `gemini-3-pro-preview` (main), `gemini-2.5-flash` (backup)
+- Image: `gemini-3-pro-image-preview` (main), `gemini-2.5-flash-image` (backup)
 
 ## Do Not
 

@@ -26,6 +26,7 @@ import TwitterSlide from './TwitterSlide';
 import StorytellerSlide from './StorytellerSlide';
 import LessonSlide from './LessonSlide';
 import { generateSlideImage, stylizeImage, editImage, refineCarouselContent, getApiAspectRatio, IMAGE_MODEL_PRO, IMAGE_MODEL_FLASH, DEFAULT_IMAGE_STYLE, setApiKey, getApiKeyMasked, hasApiKey } from '../services/geminiService';
+import { setApifyApiKey, getApifyApiKeyMasked, hasApifyApiKey } from '../services/instagramService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -386,6 +387,11 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [apiKeyDisplay, setApiKeyDisplay] = useState(getApiKeyMasked());
+
+  // Apify API key (for Instagram scraping)
+  const [showApifyKeyInput, setShowApifyKeyInput] = useState(false);
+  const [apifyKeyInput, setApifyKeyInput] = useState('');
+  const [apifyKeyDisplay, setApifyKeyDisplay] = useState(getApifyApiKeyMasked());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -1201,6 +1207,15 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
     }
   };
 
+  const handleSaveApifyKey = () => {
+    if (apifyKeyInput.trim()) {
+      setApifyApiKey(apifyKeyInput.trim());
+      setApifyKeyDisplay(getApifyApiKeyMasked());
+      setApifyKeyInput('');
+      setShowApifyKeyInput(false);
+    }
+  };
+
   const insertMarkdown = (prefix: string, suffix: string = '') => {
       if (!textAreaRef.current) return;
       const textarea = textAreaRef.current;
@@ -1687,6 +1702,43 @@ const Workspace: React.FC<WorkspaceProps> = ({ slides, profile, style, aspectRat
                             size="sm"
                           >
                             Save API Key
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Apify API Key (for Instagram) */}
+                    <div className="bg-muted/50 rounded-lg p-3 mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-sm font-medium">Apify API Token <span className="text-muted-foreground font-normal text-xs">(Instagram)</span></Label>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => setShowApifyKeyInput(!showApifyKeyInput)}
+                          className="text-xs text-primary p-0 h-auto"
+                        >
+                          {showApifyKeyInput ? 'Cancel' : 'Change'}
+                        </Button>
+                      </div>
+                      {!showApifyKeyInput ? (
+                        <div className="text-xs text-muted-foreground font-mono">
+                          {apifyKeyDisplay || 'Not set (optional)'}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Input
+                            type="password"
+                            value={apifyKeyInput}
+                            onChange={(e) => setApifyKeyInput(e.target.value)}
+                            placeholder="Enter your Apify API token"
+                          />
+                          <Button
+                            onClick={handleSaveApifyKey}
+                            disabled={!apifyKeyInput.trim()}
+                            className="w-full"
+                            size="sm"
+                          >
+                            Save API Token
                           </Button>
                         </div>
                       )}

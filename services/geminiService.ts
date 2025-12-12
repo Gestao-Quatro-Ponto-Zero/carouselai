@@ -12,8 +12,15 @@
  * - Image models: Pro → Flash (only on 403 permission errors)
  */
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, createPartFromUri } from "@google/genai";
 import { Slide, SlideType, AspectRatio, UploadedDocument } from "../types";
+import {
+  extractInstagramUrls,
+  hasApifyApiKey,
+  scrapeInstagramPost,
+  downloadMediaAsBlob,
+  formatInstagramContentForAI,
+} from "./instagramService";
 
 // ============================================================================
 // API KEY MANAGEMENT
@@ -69,9 +76,8 @@ export const hasApiKey = (): boolean => {
 // ============================================================================
 
 // Text generation models (used for carousel content)
-// Fallback chain: PRO → PRO_2_5 → FLASH
+// Fallback chain: PRO → FLASH
 export const TEXT_MODEL_PRO = "gemini-3-pro-preview";
-export const TEXT_MODEL_PRO_2_5 = "gemini-2.5-pro-preview-02-05";
 export const TEXT_MODEL_FLASH = "gemini-2.5-flash";
 
 // Image generation models (Gemini's image generation API)
@@ -128,6 +134,46 @@ export const getApiAspectRatio = (ratio: AspectRatio): string => {
     '16/9': '16:9'
   };
   return mapping[ratio] || '1:1';
+};
+
+// ============================================================================
+// FILE UPLOAD (for Instagram media)
+// ============================================================================
+
+/**
+ * Uploads a blob to Gemini Files API and waits for it to be ready.
+ * Polls file state until ACTIVE (required before use in prompts).
+ * Used for uploading Instagram images/videos.
+ * Files are auto-deleted after 48 hours.
+ *
+ * @param blob - Media file as Blob (from downloadMediaAsBlob)
+ * @param displayName - Filename for identification
+ * @returns Object with uri and mimeType for use with createPartFromUri
+ */
+const uploadToGemini = async (blob: Blob, displayName: string): Promise<{ uri: string; mimeType: string }> => {
+  let file = await ai.files.upload({
+    file: blob,
+    config: { displayName }
+  });
+
+  // Poll until file is ACTIVE (processing complete)
+  // Videos may take longer to process than images
+  const maxAttempts = 30; // 60 seconds max wait (polling every 2s)
+  let attempts = 0;
+
+  while (file.state !== 'ACTIVE' && attempts < maxAttempts) {
+    console.log(`File processing... (${file.state})`);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    file = await ai.files.get({ name: file.name! });
+    attempts++;
+  }
+
+  if (file.state !== 'ACTIVE') {
+    throw new Error(`File failed to process after ${maxAttempts * 2}s: state=${file.state}`);
+  }
+
+  console.log(`File ready: ${displayName}`);
+  return { uri: file.uri!, mimeType: file.mimeType! };
 };
 
 // ============================================================================
@@ -309,11 +355,12 @@ Return strictly JSON.
 `;
 
   // Build contents based on input type
-  // Priority: PDF document → YouTube URLs → Plain text
+  // Priority: PDF document → Instagram URLs → YouTube URLs → Plain text
   // PDF: Use multimodal input (inline base64 + text)
+  // Instagram: Scrape via Apify, then use file_data with media URLs
   // YouTube: Use file_data with file_uri for video content extraction
   // TXT/MD: Text is already included in the prompt above
-  const buildContents = () => {
+  const buildContents = async (): Promise<string | { parts: any[] }> => {
     // Handle PDF documents (multimodal with inline data)
     if (document?.type === 'pdf' && document.base64) {
       return {
@@ -327,6 +374,68 @@ Return strictly JSON.
           { text: prompt }
         ]
       };
+    }
+
+    // Handle Instagram URLs (scrape via Apify, download media, upload to Gemini Files API)
+    const instagramUrls = extractInstagramUrls(effectiveTopic);
+    if (instagramUrls.length > 0 && hasApifyApiKey()) {
+      try {
+        console.log('Fetching Instagram content...');
+        const instagramData = await scrapeInstagramPost(instagramUrls[0]);
+        const parts: any[] = [];
+
+        // Handle Video (Reels) - download and upload to Gemini
+        if (instagramData.type === 'Video' && instagramData.videoUrl) {
+          try {
+            console.log('Downloading Instagram video...');
+            const videoBlob = await downloadMediaAsBlob(instagramData.videoUrl);
+            console.log('Uploading video to Gemini Files API...');
+            const uploaded = await uploadToGemini(videoBlob, `instagram_reel_${Date.now()}.mp4`);
+            parts.push(createPartFromUri(uploaded.uri, uploaded.mimeType));
+          } catch (err) {
+            console.warn('Failed to upload Instagram video:', err);
+            // Will fall through to text-only if no media uploaded
+          }
+        }
+        // Handle Images (carousel or single post) - download and upload each
+        else if (instagramData.images?.length > 0) {
+          console.log(`Downloading ${instagramData.images.length} Instagram images...`);
+          // Limit to 10 images to stay under request size limits
+          for (const imageUrl of instagramData.images.slice(0, 10)) {
+            try {
+              const imageBlob = await downloadMediaAsBlob(imageUrl);
+              const uploaded = await uploadToGemini(imageBlob, `instagram_image_${Date.now()}.jpg`);
+              parts.push(createPartFromUri(uploaded.uri, uploaded.mimeType));
+            } catch (err) {
+              console.warn('Failed to upload Instagram image:', err);
+              // Continue with other images
+            }
+          }
+        }
+
+        // Build enhanced prompt with Instagram caption
+        const instagramContext = `\n\nSource: Instagram ${instagramData.type} by @${instagramData.ownerUsername}${instagramData.ownerFullName ? ` (${instagramData.ownerFullName})` : ''}:\nCaption: ${instagramData.caption || '(no caption)'}`;
+
+        // Remove the Instagram URL from topic for cleaner prompt
+        const topicWithoutUrl = effectiveTopic.replace(extractInstagramUrls(effectiveTopic)[0], '').trim();
+        const additionalContext = topicWithoutUrl ? `\n\nAdditional context: ${topicWithoutUrl}` : '';
+
+        parts.push({ text: prompt + instagramContext + additionalContext });
+
+        // Only return multimodal if we have at least one media part
+        if (parts.length > 1) {
+          console.log('Using multimodal Instagram content');
+          return { parts };
+        }
+
+        // Fallback to text-only with OCR data if media upload failed
+        console.log('Using text-only Instagram content (media upload failed)');
+        const textContent = formatInstagramContentForAI(instagramData);
+        return prompt + '\n\n' + textContent + additionalContext;
+      } catch (error) {
+        console.warn('Failed to process Instagram, falling back to plain text:', error);
+        // Fall through to try YouTube or plain text
+      }
     }
 
     // Handle YouTube URLs (multimodal with file_uri)
@@ -348,9 +457,10 @@ Return strictly JSON.
   // Inner function to call the API with a specific model
   // Uses "structured output" (responseSchema) to guarantee JSON format
   const generate = async (m: string) => {
+      const contents = await buildContents();
       const response = await ai.models.generateContent({
         model: m,
-        contents: buildContents(),
+        contents,
         config: {
           // STRUCTURED OUTPUT: Forces Gemini to return valid JSON
           // matching our schema - no regex parsing needed
@@ -401,12 +511,10 @@ Return strictly JSON.
   } catch (error) {
     console.warn(`Error generating carousel content with ${modelName}:`, error);
     
-    // Recursive Fallback Chain: Pro 3 -> Pro 2.5 -> Flash
+    // Fallback Chain: Pro 3 -> Flash
     let fallbackModel: string | null = null;
 
     if (modelName === TEXT_MODEL_PRO) {
-        fallbackModel = TEXT_MODEL_PRO_2_5;
-    } else if (modelName === TEXT_MODEL_PRO_2_5) {
         fallbackModel = TEXT_MODEL_FLASH;
     }
 
@@ -580,11 +688,9 @@ Return strictly JSON with ONE refined slide.`;
   } catch (error) {
     console.warn(`Error refining content with ${modelName}:`, error);
 
-    // Same fallback chain as generateCarouselContent
+    // Same fallback chain as generateCarouselContent: Pro 3 -> Flash
     let fallbackModel: string | null = null;
     if (modelName === TEXT_MODEL_PRO) {
-      fallbackModel = TEXT_MODEL_PRO_2_5;
-    } else if (modelName === TEXT_MODEL_PRO_2_5) {
       fallbackModel = TEXT_MODEL_FLASH;
     }
 

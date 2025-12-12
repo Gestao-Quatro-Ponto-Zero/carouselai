@@ -14,6 +14,7 @@ CarouselAI is an Instagram carousel creator that uses Google Gemini AI for conte
 - **Google Gemini AI** (`@google/genai`) for text and image generation
 - **html-to-image** for PNG export (captures rendered DOM)
 - **@dnd-kit** (`@dnd-kit/core`, `@dnd-kit/sortable`) for drag-and-drop slide reordering
+- **Apify REST API** for Instagram post/reel scraping (browser-compatible, no npm client)
 
 ## Commands
 
@@ -53,13 +54,15 @@ npm run preview      # Preview production build
 │       ├── toggle.tsx
 │       └── toggle-group.tsx
 └── services/
-    └── geminiService.ts       # Gemini AI API integration
+    ├── geminiService.ts       # Gemini AI API integration
+    └── instagramService.ts    # Instagram scraping via Apify REST API
 ```
 
 ## Key Files to Understand
 
 - **`Workspace.tsx`** - The main editor component. Contains slide management (add, delete, duplicate, reorder via drag-and-drop), image generation, export functionality, and all sidebar controls. Also handles background image generation, layout ordering, and style conversion.
-- **`geminiService.ts`** - Handles all Gemini API calls. Exports `generateCarouselContent`, `generateSlideImage`, `stylizeImage`, `editImage`, `refineCarouselContent`, `processDocument`.
+- **`geminiService.ts`** - Handles all Gemini API calls. Exports `generateCarouselContent`, `generateSlideImage`, `stylizeImage`, `editImage`, `refineCarouselContent`, `processDocument`. Also handles Instagram media upload via Gemini Files API.
+- **`instagramService.ts`** - Handles Instagram scraping via Apify REST API. Exports URL detection (`extractInstagramUrls`), API key management (`setApifyApiKey`, `getApifyApiKey`), scraping (`scrapeInstagramPost`), and media download (`downloadMediaAsBlob`).
 - **`types.ts`** - All TypeScript types. Key types: `Slide`, `Profile`, `CarouselStyle`, `Theme`, `AspectRatio`, `FontStyle`, `ContentLayout`, `UploadedDocument`, `CarouselProject`.
 
 ## Code Style
@@ -83,10 +86,12 @@ npm run preview      # Preview production build
 - `crossOrigin="anonymous"` only needed for external URLs, NOT for data URIs (base64)
 
 ### AI Integration
-- API key stored in localStorage (user enters in UI) or `.env.local`
-- Text generation: `gemini-2.5-pro-preview-05-06` or `gemini-2.0-flash`
-- Image generation: `gemini-2.0-flash-exp-image-generation`
+- Gemini API key stored in localStorage (user enters in UI) or `.env.local`
+- Apify API token stored in localStorage (user enters in UI, for Instagram scraping)
+- Text generation: `gemini-3-pro-preview` (main), `gemini-2.5-flash` (backup)
+- Image generation: `gemini-3-pro-image-preview` (main), `gemini-2.5-flash-image` (backup)
 - Supported aspect ratios for images: 1:1, 4:5, 9:16, 16:9
+- Instagram media (images/videos) are downloaded as Blob, uploaded to Gemini Files API, then referenced via `createPartFromUri`
 
 ### Styling
 - **Editor UI Theme**: Light mode (default) or Dark mode, controlled by `editorTheme` state in App.tsx
